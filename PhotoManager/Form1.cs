@@ -11,9 +11,20 @@ using System.Windows.Forms;
 
 namespace PhotoManager
 {
+
+    public class PhotoDetails
+    {
+        public string filename;
+        public string path;
+        public DateTime dateTime;
+        public long size;
+    }
+
     public partial class Form1 : Form
     {
         private List<string> listPhotos;
+
+        private Dictionary<string, PhotoDetails> dictPhotos;
 
         public Form1()
         {
@@ -33,6 +44,7 @@ namespace PhotoManager
         private void btnScan_Click(object sender, EventArgs e)
         {
             listPhotos = new List<string> { };
+            dictPhotos = new Dictionary<string, PhotoDetails> { };
 
             Recurse(txtPath.Text);
         }
@@ -58,16 +70,33 @@ namespace PhotoManager
 
                 lstFiles.Items.Clear();
 
+                int duplicates = 0;
+
                 foreach(var photo in listPhotos)
                 {
                     FileInfo fi = new FileInfo(photo);
 
-                    ListViewItem item = new ListViewItem();
-                    string[] details = { fi.DirectoryName, fi.CreationTime.ToString(), fi.Length.ToString() };
-                    lstFiles.Items.Add(fi.Name).SubItems.AddRange(details);
+                    PhotoDetails details = new PhotoDetails();
+                    details.filename = fi.Name;
+                    details.dateTime = fi.CreationTime;
+                    details.path = fi.DirectoryName;
+                    details.size = fi.Length;
+
+                    string hash = $"{details.filename}{details.dateTime.ToString()}{details.size}";
+
+                    if (dictPhotos.ContainsKey(hash))
+                    {
+                        duplicates++;
+                    }
+                    else
+                    {
+                        ListViewItem item = new ListViewItem();
+                        string[] data = { fi.DirectoryName, fi.CreationTime.ToString(), fi.Length.ToString() };
+                        lstFiles.Items.Add(fi.Name).SubItems.AddRange(data);
+                    }
                 }
 
-                txtStatus.Text = $"{listPhotos.Count} files found.";
+                txtStatus.Text = $"{listPhotos.Count} files found. {duplicates} duplicates, {listPhotos.Count - duplicates} unique.";
             }
             catch (Exception e)
             {
