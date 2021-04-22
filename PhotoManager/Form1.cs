@@ -90,6 +90,8 @@ namespace PhotoManager
                     }
                     else
                     {
+                        dictPhotos[hash] = details;
+
                         ListViewItem item = new ListViewItem();
                         string[] data = { fi.DirectoryName, fi.CreationTime.ToString(), fi.Length.ToString() };
                         lstFiles.Items.Add(fi.Name).SubItems.AddRange(data);
