@@ -41,11 +41,29 @@ namespace PhotoManager
 
             Recurse(txtPath.Text);
 
+            SortedDictionary<long, int> histogram = new SortedDictionary<long, int>();
+            foreach (var photo in dictPhotos.Values)
+            {
+                long size = photo.size / (10 * 1024);
+                if (histogram.ContainsKey(size))
+                {
+                    histogram[size]++;
+                }
+                else
+                {
+                    histogram[size] = 1;
+                }
+            }
+
+            treeFiles.Nodes.Clear();
+
             treeFiles.BeginUpdate();
             treeFiles.Nodes.Add(txtPath.Text.TrimEnd(trimChars), txtPath.Text);
 
-            foreach (var photo in dictPhotos.Values)
+            foreach (var key in dictPhotos.Keys)
             {
+                var photo = dictPhotos[key];
+
                 TreeNode[] nodes;
                 nodes = treeFiles.Nodes.Find(photo.path.TrimEnd(trimChars), true);
                 if (nodes.Length <= 0)
@@ -79,7 +97,7 @@ namespace PhotoManager
                     while (nodes.Length <= 0);
                 }
 
-                nodes[0].Nodes.Add(photo.filename);
+                nodes[0].Nodes.Add(photo.filename, key);
             }
 
             treeFiles.EndUpdate();
