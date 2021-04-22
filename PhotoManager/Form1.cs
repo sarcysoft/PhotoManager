@@ -61,10 +61,12 @@ namespace PhotoManager
                         if (pathNodes.Length <= 0)
                         {
                             pathNodes = treeFiles.Nodes.Find(tempPathL, true);
+
+                            tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
+                            tempPathL = tempPathL + "\\" + tempPath;
+
                             if (pathNodes.Length > 0)
                             {
-                                tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
-                                tempPathL = tempPathL + "\\" + tempPath;
                                 pathNodes[0].Nodes.Add(tempPathL, tempPath);
                             }
                         }
@@ -101,8 +103,6 @@ namespace PhotoManager
                 }
                 
                 listPhotos.Sort();
-
-                lstFiles.Items.Clear();
 
                 int duplicates = 0;
 
