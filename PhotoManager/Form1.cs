@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -32,6 +33,23 @@ namespace PhotoManager
             }
         }
 
+        private string GetHash(FileInfo fi)
+        {
+            byte[] md5Hash;
+
+            using (var md5 = MD5.Create())
+            {
+                using (var stream = File.OpenRead(fi.FullName))
+                {
+                    md5Hash = md5.ComputeHash(stream);
+                }
+            }
+
+            string hash = $"{fi.Length}{BitConverter.ToString(md5Hash).Replace("-", "")}";
+
+            return hash;
+        }
+
         private void btnScan_Click(object sender, EventArgs e)
         {
             char[] trimChars = new char[]  {'\\'};
@@ -41,69 +59,78 @@ namespace PhotoManager
 
             Recurse(txtPath.Text);
 
-            SortedDictionary<long, int> histogram = new SortedDictionary<long, int>();
-            foreach (var photo in dictPhotos.Values)
-            {
-                long size = photo.size / (10 * 1024);
-                if (histogram.ContainsKey(size))
-                {
-                    histogram[size]++;
-                }
-                else
-                {
-                    histogram[size] = 1;
-                }
-            }
+            int duplicates = 0;
+
 
             treeFiles.Nodes.Clear();
 
             treeFiles.BeginUpdate();
             treeFiles.Nodes.Add(txtPath.Text.TrimEnd(trimChars), txtPath.Text);
 
-            foreach (var key in dictPhotos.Keys)
+            string lastPath = "";
+            TreeNode[] nodes = null;
+
+            foreach (var photo in listPhotos)
             {
-                var photo = dictPhotos[key];
+                FileInfo fi = new FileInfo(photo);
 
-                TreeNode[] nodes;
-                nodes = treeFiles.Nodes.Find(photo.path.TrimEnd(trimChars), true);
-                if (nodes.Length <= 0)
+                PhotoDetails details = new PhotoDetails();
+                details.filename = fi.Name;
+                details.dateTime = fi.CreationTime;
+                details.path = fi.DirectoryName;
+                details.size = fi.Length;
+
+                string hash = GetHash(fi);
+
+                if (dictPhotos.ContainsKey(hash))
                 {
-                    string tempPathL = txtPath.Text.Trim(trimChars);
-                    string tempPathR = photo.path.Substring(tempPathL.Length).Trim(trimChars)+"\\";
+                    duplicates++;
+                }
+                else
+                {
+                    dictPhotos[hash] = details;
+                }
 
-                    do
+                if (details.path != lastPath)
+                {
+                    nodes = treeFiles.Nodes.Find(details.path.TrimEnd(trimChars), true);
+                    if (nodes.Length <= 0)
                     {
-                        string tempPath = tempPathR.Substring(0, tempPathR.IndexOf("\\"));
+                        string tempPathL = txtPath.Text.Trim(trimChars);
+                        string tempPathR = details.path.Substring(tempPathL.Length).Trim(trimChars) + "\\";
 
-                        TreeNode[] pathNodes = treeFiles.Nodes.Find(tempPathL + "\\" + tempPath, true);
-                        if (pathNodes.Length <= 0)
+                        do
                         {
-                            pathNodes = treeFiles.Nodes.Find(tempPathL, true);
-                            if (pathNodes.Length > 0)
+                            string tempPath = tempPathR.Substring(0, tempPathR.IndexOf("\\"));
+
+                            TreeNode[] pathNodes = treeFiles.Nodes.Find(tempPathL + "\\" + tempPath, true);
+                            if (pathNodes.Length <= 0)
+                            {
+                                pathNodes = treeFiles.Nodes.Find(tempPathL, true);
+                                if (pathNodes.Length > 0)
+                                {
+                                    tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
+                                    tempPathL = tempPathL + "\\" + tempPath;
+                                    pathNodes[0].Nodes.Add(tempPathL, tempPath);
+                                }
+                            }
+                            else
                             {
                                 tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
                                 tempPathL = tempPathL + "\\" + tempPath;
-                                pathNodes[0].Nodes.Add(tempPathL, tempPath);
                             }
-                        }
-                        else
-                        {
-                            tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
-                            tempPathL = tempPathL + "\\" + tempPath;
-                        }
 
-                        nodes = treeFiles.Nodes.Find(photo.path.TrimEnd(trimChars), true);
+                            nodes = treeFiles.Nodes.Find(details.path.TrimEnd(trimChars), true);
+                        }
+                        while (nodes.Length <= 0);
                     }
-                    while (nodes.Length <= 0);
                 }
 
-                nodes[0].Nodes.Add(photo.filename, key);
+                nodes[0].Nodes.Add(hash, details.filename);
+                lastPath = details.path;
             }
 
             treeFiles.EndUpdate();
-
-            txtStatus.Text = $"{listPhotos.Count} files found. {listPhotos.Count - dictPhotos.Count} duplicates, {dictPhotos.Count} unique.";
-
         }
 
         private void Recurse(string path)
@@ -124,30 +151,6 @@ namespace PhotoManager
                 }
                 
                 listPhotos.Sort();
-
-                int duplicates = 0;
-
-                foreach(var photo in listPhotos)
-                {
-                    FileInfo fi = new FileInfo(photo);
-
-                    PhotoDetails details = new PhotoDetails();
-                    details.filename = fi.Name;
-                    details.dateTime = fi.CreationTime;
-                    details.path = fi.DirectoryName;
-                    details.size = fi.Length;
-
-                    string hash = $"{details.filename}{details.dateTime.ToString()}{details.size}";
-
-                    if (dictPhotos.ContainsKey(hash))
-                    {
-                        duplicates++;
-                    }
-                    else
-                    {
-                        dictPhotos[hash] = details;
-                    }
-                }
             }
             catch (Exception e)
             {
