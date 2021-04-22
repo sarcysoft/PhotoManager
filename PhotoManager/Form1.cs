@@ -61,14 +61,17 @@ namespace PhotoManager
                         if (pathNodes.Length <= 0)
                         {
                             pathNodes = treeFiles.Nodes.Find(tempPathL, true);
-
-                            tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
-                            tempPathL = tempPathL + "\\" + tempPath;
-
                             if (pathNodes.Length > 0)
                             {
+                                tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
+                                tempPathL = tempPathL + "\\" + tempPath;
                                 pathNodes[0].Nodes.Add(tempPathL, tempPath);
                             }
+                        }
+                        else
+                        {
+                            tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
+                            tempPathL = tempPathL + "\\" + tempPath;
                         }
 
                         nodes = treeFiles.Nodes.Find(photo.path.TrimEnd(trimChars), true);
