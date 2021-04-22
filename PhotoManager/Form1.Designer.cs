@@ -32,12 +32,8 @@ namespace PhotoManager
             this.txtPath = new System.Windows.Forms.TextBox();
             this.btnBrowse = new System.Windows.Forms.Button();
             this.btnScan = new System.Windows.Forms.Button();
-            this.lstFiles = new System.Windows.Forms.ListView();
-            this.Filename = new System.Windows.Forms.ColumnHeader();
-            this.Path = new System.Windows.Forms.ColumnHeader();
-            this.Date = new System.Windows.Forms.ColumnHeader();
-            this.Size = new System.Windows.Forms.ColumnHeader();
             this.txtStatus = new System.Windows.Forms.TextBox();
+            this.treeFiles = new System.Windows.Forms.TreeView();
             this.SuspendLayout();
             // 
             // txtPath
@@ -67,46 +63,6 @@ namespace PhotoManager
             this.btnScan.UseVisualStyleBackColor = true;
             this.btnScan.Click += new System.EventHandler(this.btnScan_Click);
             // 
-            // lstFiles
-            // 
-            this.lstFiles.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.lstFiles.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.Filename,
-            this.Path,
-            this.Date,
-            this.Size});
-            this.lstFiles.FullRowSelect = true;
-            this.lstFiles.GridLines = true;
-            this.lstFiles.HideSelection = false;
-            this.lstFiles.Location = new System.Drawing.Point(13, 43);
-            this.lstFiles.Name = "lstFiles";
-            this.lstFiles.Size = new System.Drawing.Size(775, 370);
-            this.lstFiles.TabIndex = 3;
-            this.lstFiles.UseCompatibleStateImageBehavior = false;
-            this.lstFiles.View = System.Windows.Forms.View.Details;
-            // 
-            // Filename
-            // 
-            this.Filename.Text = "Filename";
-            this.Filename.Width = 125;
-            // 
-            // Path
-            // 
-            this.Path.Text = "Path";
-            this.Path.Width = 400;
-            // 
-            // Date
-            // 
-            this.Date.Text = "Date";
-            this.Date.Width = 128;
-            // 
-            // Size
-            // 
-            this.Size.Text = "Size";
-            this.Size.Width = 100;
-            // 
             // txtStatus
             // 
             this.txtStatus.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
@@ -116,13 +72,23 @@ namespace PhotoManager
             this.txtStatus.Size = new System.Drawing.Size(798, 23);
             this.txtStatus.TabIndex = 4;
             // 
+            // treeFiles
+            // 
+            this.treeFiles.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.treeFiles.Location = new System.Drawing.Point(13, 42);
+            this.treeFiles.Name = "treeFiles";
+            this.treeFiles.Size = new System.Drawing.Size(775, 376);
+            this.treeFiles.TabIndex = 5;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.treeFiles);
             this.Controls.Add(this.txtStatus);
-            this.Controls.Add(this.lstFiles);
             this.Controls.Add(this.btnScan);
             this.Controls.Add(this.btnBrowse);
             this.Controls.Add(this.txtPath);
@@ -138,12 +104,8 @@ namespace PhotoManager
         private System.Windows.Forms.TextBox txtPath;
         private System.Windows.Forms.Button btnBrowse;
         private System.Windows.Forms.Button btnScan;
-        private System.Windows.Forms.ListView lstFiles;
-        private System.Windows.Forms.ColumnHeader Path;
-        private System.Windows.Forms.ColumnHeader Date;
-        private System.Windows.Forms.ColumnHeader Size;
-        private System.Windows.Forms.ColumnHeader Filename;
         private System.Windows.Forms.TextBox txtStatus;
+        private System.Windows.Forms.TreeView treeFiles;
     }
 }
 

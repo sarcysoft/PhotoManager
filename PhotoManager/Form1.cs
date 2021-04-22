@@ -11,15 +11,6 @@ using System.Windows.Forms;
 
 namespace PhotoManager
 {
-
-    public class PhotoDetails
-    {
-        public string filename;
-        public string path;
-        public DateTime dateTime;
-        public long size;
-    }
-
     public partial class Form1 : Form
     {
         private List<string> listPhotos;
@@ -43,10 +34,53 @@ namespace PhotoManager
 
         private void btnScan_Click(object sender, EventArgs e)
         {
+            char[] trimChars = new char[]  {'\\'};
+
             listPhotos = new List<string> { };
             dictPhotos = new Dictionary<string, PhotoDetails> { };
 
             Recurse(txtPath.Text);
+
+            treeFiles.BeginUpdate();
+            treeFiles.Nodes.Add(txtPath.Text.TrimEnd(trimChars), txtPath.Text);
+
+            foreach (var photo in dictPhotos.Values)
+            {
+                TreeNode[] nodes;
+                nodes = treeFiles.Nodes.Find(photo.path.TrimEnd(trimChars), true);
+                if (nodes.Length <= 0)
+                {
+                    string tempPathL = txtPath.Text.Trim(trimChars);
+                    string tempPathR = photo.path.Substring(tempPathL.Length).Trim(trimChars)+"\\";
+
+                    do
+                    {
+                        string tempPath = tempPathR.Substring(0, tempPathR.IndexOf("\\"));
+
+                        TreeNode[] pathNodes = treeFiles.Nodes.Find(tempPathL + "\\" + tempPath, true);
+                        if (pathNodes.Length <= 0)
+                        {
+                            pathNodes = treeFiles.Nodes.Find(tempPathL, true);
+                            if (pathNodes.Length > 0)
+                            {
+                                tempPathR = tempPathR.Substring(tempPathR.IndexOf("\\")).TrimStart(trimChars);
+                                tempPathL = tempPathL + "\\" + tempPath;
+                                pathNodes[0].Nodes.Add(tempPathL, tempPath);
+                            }
+                        }
+
+                        nodes = treeFiles.Nodes.Find(photo.path.TrimEnd(trimChars), true);
+                    }
+                    while (nodes.Length <= 0);
+                }
+
+                nodes[0].Nodes.Add(photo.filename);
+            }
+
+            treeFiles.EndUpdate();
+
+            txtStatus.Text = $"{listPhotos.Count} files found. {listPhotos.Count - dictPhotos.Count} duplicates, {dictPhotos.Count} unique.";
+
         }
 
         private void Recurse(string path)
@@ -91,19 +125,21 @@ namespace PhotoManager
                     else
                     {
                         dictPhotos[hash] = details;
-
-                        ListViewItem item = new ListViewItem();
-                        string[] data = { fi.DirectoryName, fi.CreationTime.ToString(), fi.Length.ToString() };
-                        lstFiles.Items.Add(fi.Name).SubItems.AddRange(data);
                     }
                 }
-
-                txtStatus.Text = $"{listPhotos.Count} files found. {duplicates} duplicates, {listPhotos.Count - duplicates} unique.";
             }
             catch (Exception e)
             {
-
+                Console.WriteLine(e.Message);
             }
         }
+    }
+
+    public class PhotoDetails
+    {
+        public string filename;
+        public string path;
+        public DateTime dateTime;
+        public long size;
     }
 }
