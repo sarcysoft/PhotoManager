@@ -19,11 +19,12 @@ namespace PhotoManager
         private List<string> listPhotos;
 
         private Dictionary<string, PhotoDetails> dictPhotos;
-        public ImageList iconList { get; set; }
+        //public ImageList iconList { get; set; }
 
+        public Dictionary<string, Mat[]> splitMats;
         public Dictionary<string, Mat> imageMats;
 
-        public int segmentSize = 32;
+        public int segmentSize = 1;
 
         public Form1()
         {
@@ -68,10 +69,11 @@ namespace PhotoManager
 
             int duplicates = 0;
 
-            iconList = new();
+            //iconList = new();
             imageMats = new();
+            splitMats = new();
 
-            treeFiles.ImageList = iconList;
+            //treeFiles.ImageList = iconList;
 
             treeFiles.Nodes.Clear();
 
@@ -139,21 +141,32 @@ namespace PhotoManager
 
                 var fullPath = $"{details.path}\\{details.filename}";
 
-                var image = CvInvoke.Imread(fullPath);
-                CvInvoke.Resize(image, image, new Size(segmentSize, segmentSize), 0, 0, Inter.Cubic);
+                //int imageIndex = -1;
+                try
+                {
+                    var image = CvInvoke.Imread(fullPath);
+                    CvInvoke.Resize(image, image, new Size(segmentSize, segmentSize), 0, 0, Inter.Cubic);
 
-                imageMats[fullPath] = image;
+                    imageMats[fullPath] = image;
+                    splitMats[fullPath] = image.Split();
+                    /*
+                    Mat icon = new Mat();
+                    CvInvoke.Resize(image, icon, new Size(32, 32), 0, 0, Inter.Cubic);
+                    Emgu.CV.Util.VectorOfByte buf = new();
+                    CvInvoke.Imencode(".jpg", icon, buf);
+                    MemoryStream stream = new MemoryStream(buf.ToArray());
+                    iconList.Images.Add(Image.FromStream(stream));
+                    imageIndex = iconList.Images.Count - 1;
+                    */
+                }
+                catch (Exception e2)
+                {
 
-                Mat icon = new Mat();
-                CvInvoke.Resize(image, icon, new Size(32, 32), 0, 0, Inter.Cubic);
-                Emgu.CV.Util.VectorOfByte buf = new();
-                CvInvoke.Imencode(".jpg", icon, buf);
-                MemoryStream stream = new MemoryStream(buf.ToArray());
-                iconList.Images.Add(Image.FromStream(stream));
+                }
 
                 TreeNode newNode = new TreeNode(hash);
                 newNode.Text = details.filename;
-                newNode.ImageIndex = iconList.Images.Count - 1;
+                //newNode.ImageIndex = imageIndex;
 
                 nodes[0].Nodes.Add(newNode);
 
@@ -216,21 +229,19 @@ namespace PhotoManager
             }
         }
 
-        double GetSimilarity(Mat A, Mat B)
+        double GetSimilarity(Mat A, Mat[] B)
         {
             double similarity = 1;
-            if ((A.Rows > 0) && (A.Rows == B.Rows) && (A.Cols > 0) && (A.Cols == B.Cols))
-            {
-                Mat[] chanA = A.Split();
-                Mat[] chanB = B.Split();
 
-                for (var i = 0; i < chanA.Length; i++)
-                {
-                    // Calculate the L2 relative error between images.
-                    double norm = CvInvoke.Norm(chanA[i], chanB[i], NormType.C);
-                    // Convert to a reasonable scale, since L2 error is summed across all pixels of the image.
-                    similarity += (norm / (double)(A.Rows * A.Cols));
-                }
+            Mat[] chanA = A.Split();
+
+
+            for (var i = 0; i < chanA.Length; i++)
+            {
+                // Calculate the L2 relative error between images.
+                double norm = CvInvoke.Norm(chanA[i], B[i], NormType.C);
+                // Convert to a reasonable scale, since L2 error is summed across all pixels of the image.
+                similarity += (norm / (double)(A.Rows * A.Cols));
             }
 
             return similarity;
@@ -241,7 +252,7 @@ namespace PhotoManager
             double similarity = 0xffffffff;
             string path = "";
 
-            foreach (var img in imageMats)
+            foreach (var img in splitMats)
             {
                 var sim = GetSimilarity(image, img.Value);
                 if (sim < similarity)
