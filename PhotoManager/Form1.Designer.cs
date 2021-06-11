@@ -75,6 +75,7 @@ namespace PhotoManager
             this.treeFiles.Name = "treeFiles";
             this.treeFiles.Size = new System.Drawing.Size(454, 470);
             this.treeFiles.TabIndex = 5;
+            this.treeFiles.NodeMouseDoubleClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeFiles_NodeMouseDoubleClick);
             // 
             // treePhotos
             // 

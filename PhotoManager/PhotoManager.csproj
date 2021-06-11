@@ -6,4 +6,9 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Emgu.CV" Version="4.5.1.4349" />
+    <PackageReference Include="Emgu.CV.runtime.windows" Version="4.5.1.4349" />
+  </ItemGroup>
+
 </Project>

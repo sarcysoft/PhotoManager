@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Emgu.CV;
+using Emgu.CV.CvEnum;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -155,6 +157,27 @@ namespace PhotoManager
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
+            }
+        }
+
+        private void treeFiles_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            try
+            {
+                // Look for a file extension.
+                if (e.Node.Text.Contains("."))
+                {
+                    //IntPtr image = CvInvoke.cvCreateImage(new System.Drawing.Size(400, 300), IplDepth.IplDepth_8U, 1);
+                    var image = CvInvoke.Imread(e.Node.FullPath);
+                    CvInvoke.Resize(image, image, new Size(2, 2), 0, 0, Inter.Cubic);
+                    CvInvoke.Resize(image, image, new Size(100, 100), 0, 0, Inter.Cubic);
+                    CvInvoke.Imshow(e.Node.Text, image);
+                }
+            }
+            // If the file is not found, handle the exception and inform the user.
+            catch (System.ComponentModel.Win32Exception)
+            {
+                MessageBox.Show("File not found.");
             }
         }
     }
