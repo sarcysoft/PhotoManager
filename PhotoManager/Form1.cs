@@ -159,7 +159,7 @@ namespace PhotoManager
                     imageIndex = iconList.Images.Count - 1;
                     */
                 }
-                catch (Exception e2)
+                catch (Exception ex)
                 {
 
                 }
@@ -219,7 +219,10 @@ namespace PhotoManager
                 // Look for a file extension.
                 if (e.Node.Text.Contains("."))
                 {
-                    ShowImg(e.Node.FullPath.ToLower());
+                    var compDlg = new CompositeMaker();
+                    compDlg.SetSourceFile(e.Node.FullPath.ToLower());
+                    compDlg.SetPhotoList(listPhotos);
+                    compDlg.ShowDialog();
                 }
             }
             // If the file is not found, handle the exception and inform the user.
