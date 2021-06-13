@@ -9,6 +9,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -37,7 +38,8 @@ namespace PhotoManager
         private int scale = 10;
         private int coverage = 0;
 
-        int progress = 0;
+        private int progress = 0;
+        private int zoom = 1;
 
         public CompositeMaker()
         {
@@ -72,7 +74,7 @@ namespace PhotoManager
             MemoryStream stream = new MemoryStream(buf.ToArray());
             pictureSource.Image = Image.FromStream(stream);
 
-            labelSize.Text = $"[{inputMat.Cols / numScale.Value} x {inputMat.Rows / numScale.Value}]";
+            labelSize.Text = $"[{(int)(inputMat.Cols / numScale.Value)} x {(int)(inputMat.Rows / numScale.Value)}]";
 
             trackBar1.Value = 1;
 
@@ -251,12 +253,16 @@ namespace PhotoManager
             return path;
         }
 
-        private void btnCreate_Click(object sender, EventArgs e)
+        private Thread createThread;
+
+        private void Create()
         {
             int outscale = (int)numScale.Value;
 
             var xSize = (int)(inputMat.Cols / numScale.Value);
             var ySize = (int)(inputMat.Rows / numScale.Value);
+            
+            trackBar1.Value = 1;
 
             outputMat = new Mat(new Size(xSize, ySize), inputMat.Depth, inputMat.NumberOfChannels);
             Mat scaledMat = new();
@@ -268,17 +274,34 @@ namespace PhotoManager
             var rows = Enumerable.Range(0, scaledMat.Rows);
             var cols = Enumerable.Range(0, scaledMat.Cols);
 
-            Parallel.ForEach(rows, row =>
+            foreach (var col in cols)
             {
-                foreach(var col in cols)
-                { 
+                Parallel.ForEach(rows, row =>
+                {
                     var value = scaledMat.GetRawData(row, col);
                     pictureGrid[col, row] = FindClosest(value[0], value[1], value[2]);
-                }
-            });
 
-            trackBar1.Value = 1;
-            UpdateDest();
+                    var image = pixelMats[pictureGrid[col, row]];
+
+                    Rectangle roi = new Rectangle(col * zoom, row * zoom, zoom, zoom);
+
+                    Mat target = new Mat(outputMat, roi);
+                    image.CopyTo(target);
+                });
+
+                progress = (col * 100) / cols.Count();
+            }
+
+            progress = 0;
+        }
+
+        private void btnCreate_Click(object sender, EventArgs e)
+        {
+            btnCreate.Enabled = false;
+            btnUpdate.Enabled = false;
+
+            createThread = new Thread(Create);
+            createThread.Start();
         }
 
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
@@ -290,8 +313,6 @@ namespace PhotoManager
 
         private void UpdateDest()
         {
-            var zoom = trackBar1.Value;
-
             var x = (outputMat.Cols / 2) - (outputMat.Cols / (2 * zoom));
             var y = (outputMat.Rows / 2) - (outputMat.Rows / (2 * zoom));
 
@@ -300,7 +321,7 @@ namespace PhotoManager
                 var rows = Enumerable.Range(0, outputMat.Rows/zoom);
                 var cols = Enumerable.Range(0, outputMat.Cols/zoom);
 
-                Parallel.ForEach(rows, row =>
+                foreach(var row in rows)
                 {
                     Parallel.ForEach(cols, col =>
                     {
@@ -320,13 +341,18 @@ namespace PhotoManager
                         Mat target = new Mat(outputMat, roi);
                         image.CopyTo(target);
                     });
-                });
+
+                    progress = (row * 100) / rows.Count(); 
+                }
             }
+
+            progress = 0;
         }
 
         private void trackBar1_Scroll(object sender, EventArgs e)
         {
             labelZoom.Text = $"x{trackBar1.Value}";
+            zoom = trackBar1.Value;
         }
 
         private void pictureDest_DoubleClick(object sender, EventArgs e)
@@ -336,24 +362,47 @@ namespace PhotoManager
 
         private void UpdateDestPic()
         {
-            Mat image = new Mat();
-            CvInvoke.Resize(outputMat, image, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
-            Emgu.CV.Util.VectorOfByte buf = new();
-            CvInvoke.Imencode(".jpg", image, buf);
-            MemoryStream stream = new MemoryStream(buf.ToArray());
-            pictureDest.Image = Image.FromStream(stream);
+            if (outputMat != null)
+            {
+                Mat image = new Mat();
+                CvInvoke.Resize(outputMat, image, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
+                Emgu.CV.Util.VectorOfByte buf = new();
+                CvInvoke.Imencode(".jpg", image, buf);
+                MemoryStream stream = new MemoryStream(buf.ToArray());
+                pictureDest.Image = Image.FromStream(stream);
+            }
         }
 
         private void timer1_Tick(object sender, EventArgs e)
         {
             progressBar1.Value = progress;
 
+            if ((createThread != null) && (!createThread.IsAlive))
+            {
+                createThread = null;
+                btnCreate.Enabled = true;
+                btnUpdate.Enabled = true;
+            }
+
+            if ((updateThread != null) && (!updateThread.IsAlive))
+            {
+                updateThread = null;
+                btnCreate.Enabled = true;
+                btnUpdate.Enabled = true;
+            }
+
             UpdateDestPic();
         }
 
+        private Thread updateThread;
+
         private void btnUpdate_Click(object sender, EventArgs e)
         {
-            UpdateDest();
+            btnCreate.Enabled = false;
+            btnUpdate.Enabled = false;
+
+            updateThread = new Thread(UpdateDest);
+            updateThread.Start();
         }
     }
 }
