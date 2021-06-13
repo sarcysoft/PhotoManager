@@ -285,7 +285,7 @@ namespace PhotoManager
 
         Mat CreateComposite(string fullPath)
         {
-            int scale = 4;
+            int scale = 1;
             var image = CvInvoke.Imread(fullPath);
             CvInvoke.Resize(image, image, new Size(image.Cols/scale, image.Rows/scale), 0, 0, Inter.Cubic);
 
