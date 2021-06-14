@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Runtime.Caching;
 
 namespace PhotoManager
 {
@@ -19,16 +20,16 @@ namespace PhotoManager
     {
         private string inputPath;
         private List<string> listPhotos;
+        private List<byte[]> listRGB;
 
         public class ColourDetails
         {
             public bool Actual;
-            public List<string> Photos;
+            public List<int> Photos;
         }
 
         private ColourDetails[,,] lookupArray = new ColourDetails[256,256,256];
-        private Dictionary<string, Mat> pixelMats;
-        private string[,] pictureGrid;
+        private int[,] pictureGrid;
 
         private Mat inputMat;
         private Mat outputMat;
@@ -36,6 +37,7 @@ namespace PhotoManager
         private int xx = 0;
         private int yy = 0;
         private int scale = 10;
+        private int xSize, ySize;
         private int coverage = 0;
 
         private int progress = 0;
@@ -121,7 +123,7 @@ namespace PhotoManager
         {
             var value = inputMat.GetRawData(yy, xx);
             var best = FindClosest(value[0], value[1], value[2]);
-            var image = pixelMats[best];
+            var image = LoadMat(best);
             CvInvoke.Resize(image, image, new Size(pictureBestFit.Width, pictureBestFit.Height), 0, 0, Inter.Area);
             Emgu.CV.Util.VectorOfByte buf = new();
             CvInvoke.Imencode(".jpg", image, buf);
@@ -149,16 +151,13 @@ namespace PhotoManager
             int count = 0;
             int unique = 0;
 
-            pixelMats = new Dictionary<string, Mat>() { };
+            listRGB = new() { };
 
-            foreach (var photo in listPhotos)
+            for (int i = 0; i < listPhotos.Count; i++)
             {
                 try
                 {
-                    var image = CvInvoke.Imread(photo);
-                    CvInvoke.Resize(image, image, new Size(1, 1), 0, 0, Inter.Area);
-
-                    pixelMats[photo] = image;
+                    var image = LoadMat(i);
 
                     var value = image.GetRawData(0, 0);
                     if (value != null)
@@ -166,16 +165,18 @@ namespace PhotoManager
                         var r = value[0];
                         var g = value[1];
                         var b = value[2];
+                        listRGB.Add(value);
+
                         if (lookupArray[r,g,b] == null)
                         { 
                             Console.WriteLine($"New colour [{r}, {g}, {b}]");
                             lookupArray[r, g, b] = new ColourDetails();
                             lookupArray[r, g, b].Actual = true;
-                            lookupArray[r, g, b].Photos = new List<string> { };
+                            lookupArray[r, g, b].Photos = new List<int> { };
                             unique++;
                         }
                         count++;
-                        lookupArray[r,g,b].Photos.Add(photo);
+                        lookupArray[r,g,b].Photos.Add(i);
                     }
                 }
                 catch (Exception ex)
@@ -198,11 +199,11 @@ namespace PhotoManager
             return v >= (255 - s) ? 255 : v + s;
         }
 
-        private string FindClosest(int r, int g, int b)
+        private int FindClosest(int r, int g, int b)
         {
-            string path = null;
+            int best = -1;
 
-            List<string> lookupList = new List<string>() { };
+            List<int> lookupList = new List<int>() { };
 
             int searchSize = 0;
 
@@ -243,14 +244,28 @@ namespace PhotoManager
                 lookupArray[r, g, b].Photos = lookupList;
             }
 
-            if (lookupList.Count > 0)
+            if (lookupList.Count == 1)
+            {
+                best = lookupList[0];
+            }
+            else if (lookupList.Count > 1)
             {
                 var rand = new Random();
                 int x = rand.Next(0, lookupList.Count);
-                path = lookupList[x];
+                best = lookupList[x];
+            }
+            else
+            {
+                Console.WriteLine($"No Match for [{r},{g},{b}]");
             }
 
-            return path;
+            var rgb = listRGB[best];
+            if ((Math.Abs(rgb[0] - r) > 128) || (Math.Abs(rgb[1] - g) > 128) || (Math.Abs(rgb[2] - b) > 128))
+            {
+                Console.WriteLine($"No Close Match for [{r},{g},{b}]");
+            }
+
+            return best;
         }
 
         private Thread createThread;
@@ -259,21 +274,18 @@ namespace PhotoManager
         {
             int outscale = (int)numScale.Value;
 
-            var xSize = (int)(inputMat.Cols / numScale.Value);
-            var ySize = (int)(inputMat.Rows / numScale.Value);
+            xSize = (int)(inputMat.Cols / numScale.Value);
+            ySize = (int)(inputMat.Rows / numScale.Value);
             
-            trackBar1.Value = 1;
-
-            outputMat = new Mat(new Size(xSize, ySize), inputMat.Depth, inputMat.NumberOfChannels);
             Mat scaledMat = new();
-            CvInvoke.Resize(inputMat, scaledMat, new Size(outputMat.Cols, outputMat.Rows), 0, 0, Inter.Area);
+            CvInvoke.Resize(inputMat, scaledMat, new Size(xSize, ySize), 0, 0, Inter.Area);
 
-            pictureGrid = new string[outputMat.Cols, outputMat.Rows];
+            pictureGrid = new int[xSize, ySize];
 
 
-            var rows = Enumerable.Range(0, scaledMat.Rows);
-            var cols = Enumerable.Range(0, scaledMat.Cols);
-
+            var cols = Enumerable.Range(0, xSize);
+            var rows = Enumerable.Range(0, ySize);
+            
             foreach (var col in cols)
             {
                 Parallel.ForEach(rows, row =>
@@ -281,24 +293,31 @@ namespace PhotoManager
                     var value = scaledMat.GetRawData(row, col);
                     pictureGrid[col, row] = FindClosest(value[0], value[1], value[2]);
 
-                    var image = pixelMats[pictureGrid[col, row]];
+#if false
+                    var image = LoadMat(pictureGrid[col, row]);
 
                     Rectangle roi = new Rectangle(col * zoom, row * zoom, zoom, zoom);
 
                     Mat target = new Mat(outputMat, roi);
-                    image.CopyTo(target);
+                    image.CopyTo(target);                    
+#endif
                 });
 
                 progress = (col * 100) / cols.Count();
+                //System.GC.Collect();
             }
 
             progress = 0;
+
+            UpdateDest();
         }
 
         private void btnCreate_Click(object sender, EventArgs e)
         {
             btnCreate.Enabled = false;
             btnUpdate.Enabled = false;
+
+            trackBar1.Value = 1;
 
             createThread = new Thread(Create);
             createThread.Start();
@@ -316,6 +335,8 @@ namespace PhotoManager
             var x = (outputMat.Cols / 2) - (outputMat.Cols / (2 * zoom));
             var y = (outputMat.Rows / 2) - (outputMat.Rows / (2 * zoom));
 
+            outputMat = new Mat(new Size(xSize, ySize), inputMat.Depth, inputMat.NumberOfChannels);
+
             if (outputMat != null)
             {
                 var rows = Enumerable.Range(0, outputMat.Rows/zoom);
@@ -325,16 +346,7 @@ namespace PhotoManager
                 {
                     Parallel.ForEach(cols, col =>
                     {
-                        Mat image;
-                        if (zoom == 1)
-                        {
-                            image = pixelMats[pictureGrid[col+x, row+y]];
-                        }
-                        else
-                        {
-                            image = CvInvoke.Imread(pictureGrid[col+x, row+y]);
-                            CvInvoke.Resize(image, image, new Size(zoom, zoom), 0, 0, Inter.Area);
-                        }
+                        Mat image = LoadMat(pictureGrid[col+x, row+y], zoom);
 
                         Rectangle roi = new Rectangle(col*zoom, row*zoom, zoom, zoom);
 
@@ -342,11 +354,32 @@ namespace PhotoManager
                         image.CopyTo(target);
                     });
 
-                    progress = (row * 100) / rows.Count(); 
+                    progress = (row * 100) / rows.Count();
+                    //System.GC.Collect();
                 }
             }
 
             progress = 0;
+        }
+
+        ObjectCache matCache = MemoryCache.Default;
+
+        private Mat LoadMat(int fileNo, int zoom = 1)
+        {
+            string path = listPhotos[fileNo];
+            Mat image = matCache[$"{path}_{zoom}"] as Mat;
+
+            if (image == null)
+            {
+                CacheItemPolicy policy = new CacheItemPolicy();
+
+                image = CvInvoke.Imread(path);
+                CvInvoke.Resize(image, image, new Size(zoom, zoom), 0, 0, Inter.Area);
+
+                matCache.Set($"{path}_{zoom}", image, policy);
+            }
+
+            return image;
         }
 
         private void trackBar1_Scroll(object sender, EventArgs e)

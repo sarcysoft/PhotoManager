@@ -131,9 +131,9 @@ namespace PhotoManager
             this.labelSize.AutoSize = true;
             this.labelSize.Location = new System.Drawing.Point(86, 336);
             this.labelSize.Name = "labelSize";
-            this.labelSize.Size = new System.Drawing.Size(38, 15);
+            this.labelSize.Size = new System.Drawing.Size(69, 15);
             this.labelSize.TabIndex = 7;
-            this.labelSize.Text = "label2";
+            this.labelSize.Text = "[### x ###]";
             // 
             // trackBar1
             // 
