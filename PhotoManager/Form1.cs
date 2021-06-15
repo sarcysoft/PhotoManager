@@ -10,7 +10,7 @@ namespace PhotoManager
     {
         private List<string> listPhotos;
 
-        private Dictionary<string, PhotoDetails> dictPhotos;
+        //private Dictionary<string, PhotoDetails> dictPhotos;
         //public ImageList iconList { get; set; }
 
 
@@ -31,6 +31,7 @@ namespace PhotoManager
 
         private string GetHash(FileInfo fi)
         {
+#if false
             byte[] md5Hash;
 
             using (var md5 = MD5.Create())
@@ -42,7 +43,9 @@ namespace PhotoManager
             }
 
             string hash = $"{fi.Length}{BitConverter.ToString(md5Hash).Replace("-", "")}";
-
+#else
+            string hash = $"{fi.Length}{fi.FullName.GetHashCode()}";
+#endif
             return hash;
         }
 
@@ -51,7 +54,7 @@ namespace PhotoManager
             char[] trimChars = new char[] { '\\' };
 
             listPhotos = new List<string> { };
-            dictPhotos = new Dictionary<string, PhotoDetails> { };
+            //dictPhotos = new Dictionary<string, PhotoDetails> { };
 
             Recurse(txtPath.Text);
 
@@ -75,8 +78,9 @@ namespace PhotoManager
                 details.path = fi.DirectoryName;
                 details.size = fi.Length;
 
+                
                 string hash = GetHash(fi);
-
+                /*
                 if (dictPhotos.ContainsKey(hash))
                 {
                     duplicates++;
@@ -85,6 +89,7 @@ namespace PhotoManager
                 {
                     dictPhotos[hash] = details;
                 }
+                */
 
                 if (details.path != lastPath)
                 {

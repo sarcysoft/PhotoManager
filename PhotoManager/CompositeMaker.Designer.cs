@@ -43,12 +43,20 @@ namespace PhotoManager
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.btnUpdate = new System.Windows.Forms.Button();
+            this.lblCover = new System.Windows.Forms.Label();
+            this.btnSave = new System.Windows.Forms.Button();
+            this.trackBar2 = new System.Windows.Forms.TrackBar();
+            this.trackBar3 = new System.Windows.Forms.TrackBar();
+            this.labelMult = new System.Windows.Forms.Label();
+            this.labelScale = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureDest)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureTarget)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBestFit)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numScale)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar2)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).BeginInit();
             this.SuspendLayout();
             // 
             // pictureSource
@@ -138,18 +146,16 @@ namespace PhotoManager
             // trackBar1
             // 
             this.trackBar1.Location = new System.Drawing.Point(489, 334);
-            this.trackBar1.Maximum = 100;
-            this.trackBar1.Minimum = 1;
+            this.trackBar1.Maximum = 16;
             this.trackBar1.Name = "trackBar1";
-            this.trackBar1.Size = new System.Drawing.Size(400, 45);
+            this.trackBar1.Size = new System.Drawing.Size(297, 45);
             this.trackBar1.TabIndex = 8;
-            this.trackBar1.Value = 1;
             this.trackBar1.Scroll += new System.EventHandler(this.trackBar1_Scroll);
             // 
             // labelZoom
             // 
             this.labelZoom.AutoSize = true;
-            this.labelZoom.Location = new System.Drawing.Point(633, 377);
+            this.labelZoom.Location = new System.Drawing.Point(792, 338);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(19, 15);
             this.labelZoom.TabIndex = 9;
@@ -171,7 +177,7 @@ namespace PhotoManager
             // 
             // btnUpdate
             // 
-            this.btnUpdate.Location = new System.Drawing.Point(696, 373);
+            this.btnUpdate.Location = new System.Drawing.Point(814, 338);
             this.btnUpdate.Name = "btnUpdate";
             this.btnUpdate.Size = new System.Drawing.Size(75, 23);
             this.btnUpdate.TabIndex = 12;
@@ -179,13 +185,75 @@ namespace PhotoManager
             this.btnUpdate.UseVisualStyleBackColor = true;
             this.btnUpdate.Click += new System.EventHandler(this.btnUpdate_Click);
             // 
+            // lblCover
+            // 
+            this.lblCover.AutoSize = true;
+            this.lblCover.Location = new System.Drawing.Point(13, 415);
+            this.lblCover.Name = "lblCover";
+            this.lblCover.Size = new System.Drawing.Size(38, 15);
+            this.lblCover.TabIndex = 13;
+            this.lblCover.Text = "label2";
+            // 
+            // btnSave
+            // 
+            this.btnSave.Location = new System.Drawing.Point(814, 367);
+            this.btnSave.Name = "btnSave";
+            this.btnSave.Size = new System.Drawing.Size(75, 23);
+            this.btnSave.TabIndex = 14;
+            this.btnSave.Text = "Save";
+            this.btnSave.UseVisualStyleBackColor = true;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            // 
+            // trackBar2
+            // 
+            this.trackBar2.Location = new System.Drawing.Point(489, 366);
+            this.trackBar2.Maximum = 4;
+            this.trackBar2.Name = "trackBar2";
+            this.trackBar2.Size = new System.Drawing.Size(297, 45);
+            this.trackBar2.TabIndex = 15;
+            this.trackBar2.Value = 2;
+            this.trackBar2.Scroll += new System.EventHandler(this.trackBar2_Scroll);
+            // 
+            // trackBar3
+            // 
+            this.trackBar3.Location = new System.Drawing.Point(489, 395);
+            this.trackBar3.Maximum = 4;
+            this.trackBar3.Name = "trackBar3";
+            this.trackBar3.Size = new System.Drawing.Size(297, 45);
+            this.trackBar3.TabIndex = 16;
+            this.trackBar3.Scroll += new System.EventHandler(this.trackBar3_Scroll);
+            // 
+            // labelMult
+            // 
+            this.labelMult.AutoSize = true;
+            this.labelMult.Location = new System.Drawing.Point(792, 395);
+            this.labelMult.Name = "labelMult";
+            this.labelMult.Size = new System.Drawing.Size(19, 15);
+            this.labelMult.TabIndex = 17;
+            this.labelMult.Text = "x1";
+            // 
+            // labelScale
+            // 
+            this.labelScale.AutoSize = true;
+            this.labelScale.Location = new System.Drawing.Point(792, 371);
+            this.labelScale.Name = "labelScale";
+            this.labelScale.Size = new System.Drawing.Size(19, 15);
+            this.labelScale.TabIndex = 18;
+            this.labelScale.Text = "x4";
+            // 
             // CompositeMaker
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(904, 461);
-            this.Controls.Add(this.btnUpdate);
+            this.Controls.Add(this.labelScale);
+            this.Controls.Add(this.labelMult);
             this.Controls.Add(this.progressBar1);
+            this.Controls.Add(this.trackBar3);
+            this.Controls.Add(this.trackBar2);
+            this.Controls.Add(this.btnSave);
+            this.Controls.Add(this.lblCover);
+            this.Controls.Add(this.btnUpdate);
             this.Controls.Add(this.labelZoom);
             this.Controls.Add(this.trackBar1);
             this.Controls.Add(this.labelSize);
@@ -203,6 +271,7 @@ namespace PhotoManager
             this.Name = "CompositeMaker";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.Text = "CompositeMaker";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.CompositeMaker_FormClosing);
             this.Load += new System.EventHandler(this.CompositeMaker_Load);
             ((System.ComponentModel.ISupportInitialize)(this.pictureSource)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureDest)).EndInit();
@@ -210,6 +279,8 @@ namespace PhotoManager
             ((System.ComponentModel.ISupportInitialize)(this.pictureBestFit)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numScale)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar2)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -230,5 +301,11 @@ namespace PhotoManager
         private System.Windows.Forms.ProgressBar progressBar1;
         private System.Windows.Forms.Timer timer1;
         private System.Windows.Forms.Button btnUpdate;
+        private System.Windows.Forms.Label lblCover;
+        private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.TrackBar trackBar2;
+        private System.Windows.Forms.TrackBar trackBar3;
+        private System.Windows.Forms.Label labelMult;
+        private System.Windows.Forms.Label labelScale;
     }
 }
