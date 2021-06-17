@@ -38,6 +38,7 @@ namespace PhotoManager
         private Mat inputMat;
         private Mat outputMat;
         private Mat tempMat;
+        private bool bOuputReady = false;
 
         private int maxThreads = 7;
 
@@ -640,6 +641,8 @@ namespace PhotoManager
 
                 Mat croppedMat = new Mat(tempMat, roi);
                 croppedMat.CopyTo(outputMat);
+
+                bOuputReady = true;
             }
 
             progress = 0;
@@ -686,7 +689,7 @@ namespace PhotoManager
 
         private void UpdateDestPic()
         {
-            if (outputMat != null)
+            if (bOuputReady)
             {
                 Mat image = new Mat();
                 CvInvoke.Resize(outputMat, image, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
@@ -694,6 +697,8 @@ namespace PhotoManager
                 CvInvoke.Imencode(".jpg", image, buf);
                 MemoryStream stream = new MemoryStream(buf.ToArray());
                 pictureDest.Image = Image.FromStream(stream);
+
+                bOuputReady = false;
             }
         }
 
