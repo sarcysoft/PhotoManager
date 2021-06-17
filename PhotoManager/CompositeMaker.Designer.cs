@@ -45,18 +45,16 @@ namespace PhotoManager
             this.btnUpdate = new System.Windows.Forms.Button();
             this.lblCover = new System.Windows.Forms.Label();
             this.btnSave = new System.Windows.Forms.Button();
-            this.trackBar2 = new System.Windows.Forms.TrackBar();
             this.trackBar3 = new System.Windows.Forms.TrackBar();
             this.labelMult = new System.Windows.Forms.Label();
-            this.labelScale = new System.Windows.Forms.Label();
             this.labelStatus = new System.Windows.Forms.Label();
+            this.labelOutSize = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureDest)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureTarget)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBestFit)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numScale)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.trackBar2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).BeginInit();
             this.SuspendLayout();
             // 
@@ -65,7 +63,7 @@ namespace PhotoManager
             this.pictureSource.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.pictureSource.Location = new System.Drawing.Point(13, 13);
             this.pictureSource.Name = "pictureSource";
-            this.pictureSource.Size = new System.Drawing.Size(400, 300);
+            this.pictureSource.Size = new System.Drawing.Size(400, 400);
             this.pictureSource.TabIndex = 0;
             this.pictureSource.TabStop = false;
             this.pictureSource.Click += new System.EventHandler(this.pictureSource_Click);
@@ -75,7 +73,7 @@ namespace PhotoManager
             this.pictureDest.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.pictureDest.Location = new System.Drawing.Point(489, 13);
             this.pictureDest.Name = "pictureDest";
-            this.pictureDest.Size = new System.Drawing.Size(400, 300);
+            this.pictureDest.Size = new System.Drawing.Size(400, 400);
             this.pictureDest.TabIndex = 1;
             this.pictureDest.TabStop = false;
             this.pictureDest.DoubleClick += new System.EventHandler(this.pictureDest_DoubleClick);
@@ -83,7 +81,7 @@ namespace PhotoManager
             // pictureTarget
             // 
             this.pictureTarget.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureTarget.Location = new System.Drawing.Point(419, 78);
+            this.pictureTarget.Location = new System.Drawing.Point(419, 92);
             this.pictureTarget.Name = "pictureTarget";
             this.pictureTarget.Size = new System.Drawing.Size(64, 64);
             this.pictureTarget.TabIndex = 2;
@@ -92,7 +90,7 @@ namespace PhotoManager
             // pictureBestFit
             // 
             this.pictureBestFit.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureBestFit.Location = new System.Drawing.Point(419, 187);
+            this.pictureBestFit.Location = new System.Drawing.Point(419, 264);
             this.pictureBestFit.Name = "pictureBestFit";
             this.pictureBestFit.Size = new System.Drawing.Size(64, 64);
             this.pictureBestFit.TabIndex = 3;
@@ -100,7 +98,8 @@ namespace PhotoManager
             // 
             // btnCreate
             // 
-            this.btnCreate.Location = new System.Drawing.Point(211, 334);
+            this.btnCreate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnCreate.Location = new System.Drawing.Point(211, 441);
             this.btnCreate.Name = "btnCreate";
             this.btnCreate.Size = new System.Drawing.Size(75, 23);
             this.btnCreate.TabIndex = 4;
@@ -110,8 +109,9 @@ namespace PhotoManager
             // 
             // label1
             // 
+            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(13, 336);
+            this.label1.Location = new System.Drawing.Point(13, 443);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(18, 15);
             this.label1.TabIndex = 5;
@@ -119,7 +119,8 @@ namespace PhotoManager
             // 
             // numScale
             // 
-            this.numScale.Location = new System.Drawing.Point(28, 334);
+            this.numScale.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.numScale.Location = new System.Drawing.Point(28, 441);
             this.numScale.Minimum = new decimal(new int[] {
             1,
             0,
@@ -137,8 +138,9 @@ namespace PhotoManager
             // 
             // labelSize
             // 
+            this.labelSize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelSize.AutoSize = true;
-            this.labelSize.Location = new System.Drawing.Point(86, 336);
+            this.labelSize.Location = new System.Drawing.Point(86, 443);
             this.labelSize.Name = "labelSize";
             this.labelSize.Size = new System.Drawing.Size(69, 15);
             this.labelSize.TabIndex = 7;
@@ -146,7 +148,8 @@ namespace PhotoManager
             // 
             // trackBar1
             // 
-            this.trackBar1.Location = new System.Drawing.Point(489, 334);
+            this.trackBar1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.trackBar1.Location = new System.Drawing.Point(489, 434);
             this.trackBar1.Maximum = 16;
             this.trackBar1.Name = "trackBar1";
             this.trackBar1.Size = new System.Drawing.Size(297, 45);
@@ -155,8 +158,9 @@ namespace PhotoManager
             // 
             // labelZoom
             // 
+            this.labelZoom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelZoom.AutoSize = true;
-            this.labelZoom.Location = new System.Drawing.Point(792, 338);
+            this.labelZoom.Location = new System.Drawing.Point(781, 435);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(19, 15);
             this.labelZoom.TabIndex = 9;
@@ -165,7 +169,7 @@ namespace PhotoManager
             // progressBar1
             // 
             this.progressBar1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.progressBar1.Location = new System.Drawing.Point(2, 436);
+            this.progressBar1.Location = new System.Drawing.Point(2, 536);
             this.progressBar1.Name = "progressBar1";
             this.progressBar1.Size = new System.Drawing.Size(900, 23);
             this.progressBar1.TabIndex = 11;
@@ -178,7 +182,8 @@ namespace PhotoManager
             // 
             // btnUpdate
             // 
-            this.btnUpdate.Location = new System.Drawing.Point(814, 338);
+            this.btnUpdate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnUpdate.Location = new System.Drawing.Point(814, 445);
             this.btnUpdate.Name = "btnUpdate";
             this.btnUpdate.Size = new System.Drawing.Size(75, 23);
             this.btnUpdate.TabIndex = 12;
@@ -188,8 +193,9 @@ namespace PhotoManager
             // 
             // lblCover
             // 
+            this.lblCover.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblCover.AutoSize = true;
-            this.lblCover.Location = new System.Drawing.Point(13, 375);
+            this.lblCover.Location = new System.Drawing.Point(13, 482);
             this.lblCover.Name = "lblCover";
             this.lblCover.Size = new System.Drawing.Size(38, 15);
             this.lblCover.TabIndex = 13;
@@ -197,7 +203,8 @@ namespace PhotoManager
             // 
             // btnSave
             // 
-            this.btnSave.Location = new System.Drawing.Point(814, 367);
+            this.btnSave.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnSave.Location = new System.Drawing.Point(814, 474);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(75, 23);
             this.btnSave.TabIndex = 14;
@@ -205,62 +212,58 @@ namespace PhotoManager
             this.btnSave.UseVisualStyleBackColor = true;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
-            // trackBar2
-            // 
-            this.trackBar2.Location = new System.Drawing.Point(489, 366);
-            this.trackBar2.Maximum = 4;
-            this.trackBar2.Name = "trackBar2";
-            this.trackBar2.Size = new System.Drawing.Size(297, 45);
-            this.trackBar2.TabIndex = 15;
-            this.trackBar2.Scroll += new System.EventHandler(this.trackBar2_Scroll);
-            // 
             // trackBar3
             // 
-            this.trackBar3.Location = new System.Drawing.Point(489, 395);
-            this.trackBar3.Maximum = 8;
+            this.trackBar3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.trackBar3.Location = new System.Drawing.Point(489, 470);
+            this.trackBar3.Maximum = 2;
+            this.trackBar3.Minimum = 1;
             this.trackBar3.Name = "trackBar3";
             this.trackBar3.Size = new System.Drawing.Size(297, 45);
             this.trackBar3.TabIndex = 16;
+            this.trackBar3.Value = 1;
             this.trackBar3.Scroll += new System.EventHandler(this.trackBar3_Scroll);
             // 
             // labelMult
             // 
+            this.labelMult.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelMult.AutoSize = true;
-            this.labelMult.Location = new System.Drawing.Point(792, 395);
+            this.labelMult.Location = new System.Drawing.Point(781, 471);
             this.labelMult.Name = "labelMult";
             this.labelMult.Size = new System.Drawing.Size(19, 15);
             this.labelMult.TabIndex = 17;
             this.labelMult.Text = "x1";
             // 
-            // labelScale
-            // 
-            this.labelScale.AutoSize = true;
-            this.labelScale.Location = new System.Drawing.Point(792, 371);
-            this.labelScale.Name = "labelScale";
-            this.labelScale.Size = new System.Drawing.Size(19, 15);
-            this.labelScale.TabIndex = 18;
-            this.labelScale.Text = "x1";
-            // 
             // labelStatus
             // 
+            this.labelStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelStatus.AutoSize = true;
-            this.labelStatus.Location = new System.Drawing.Point(13, 406);
+            this.labelStatus.Location = new System.Drawing.Point(13, 513);
             this.labelStatus.Name = "labelStatus";
             this.labelStatus.Size = new System.Drawing.Size(38, 15);
             this.labelStatus.TabIndex = 19;
             this.labelStatus.Text = "label2";
             // 
+            // labelOutSize
+            // 
+            this.labelOutSize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.labelOutSize.AutoSize = true;
+            this.labelOutSize.Location = new System.Drawing.Point(604, 500);
+            this.labelOutSize.Name = "labelOutSize";
+            this.labelOutSize.Size = new System.Drawing.Size(69, 15);
+            this.labelOutSize.TabIndex = 20;
+            this.labelOutSize.Text = "[### x ###]";
+            // 
             // CompositeMaker
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(904, 461);
+            this.ClientSize = new System.Drawing.Size(904, 561);
+            this.Controls.Add(this.labelOutSize);
             this.Controls.Add(this.labelStatus);
-            this.Controls.Add(this.labelScale);
             this.Controls.Add(this.labelMult);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.trackBar3);
-            this.Controls.Add(this.trackBar2);
             this.Controls.Add(this.btnSave);
             this.Controls.Add(this.lblCover);
             this.Controls.Add(this.btnUpdate);
@@ -275,9 +278,9 @@ namespace PhotoManager
             this.Controls.Add(this.pictureDest);
             this.Controls.Add(this.pictureSource);
             this.MaximizeBox = false;
-            this.MaximumSize = new System.Drawing.Size(920, 500);
+            this.MaximumSize = new System.Drawing.Size(920, 600);
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(920, 500);
+            this.MinimumSize = new System.Drawing.Size(920, 600);
             this.Name = "CompositeMaker";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.Text = "CompositeMaker";
@@ -289,7 +292,6 @@ namespace PhotoManager
             ((System.ComponentModel.ISupportInitialize)(this.pictureBestFit)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numScale)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.trackBar2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -313,10 +315,9 @@ namespace PhotoManager
         private System.Windows.Forms.Button btnUpdate;
         private System.Windows.Forms.Label lblCover;
         private System.Windows.Forms.Button btnSave;
-        private System.Windows.Forms.TrackBar trackBar2;
         private System.Windows.Forms.TrackBar trackBar3;
         private System.Windows.Forms.Label labelMult;
-        private System.Windows.Forms.Label labelScale;
         private System.Windows.Forms.Label labelStatus;
+        private System.Windows.Forms.Label labelOutSize;
     }
 }

@@ -40,6 +40,8 @@ namespace PhotoManager
         private Bitmap inputBitmap;
         private Bitmap outputBitmap;
 
+        private Mutex outputMutex = new Mutex();
+
         private Rectangle outputRoi;
         private bool bOuputReady = false;
 
@@ -61,7 +63,6 @@ namespace PhotoManager
 
         private int progress = 0;
         private int zoom = 1;
-        private int tempScale = 1;
         private int outMult = 1;
 
         private string statusText = "";
@@ -115,7 +116,8 @@ namespace PhotoManager
             xx = inputBitmap.Width / 2;
             yy = inputBitmap.Height / 2;
 
-            labelSize.Text = $"[{(int)(inputBitmap.Width / numScale.Value)} x {(int)(inputBitmap.Height / numScale.Value)}]";
+            numScale.Value = minsize / 250;
+            UpdateSizes(); ;
 
             trackBar1.Value = 0;
 
@@ -495,7 +497,7 @@ namespace PhotoManager
                         Parallel.ForEach(rows, po, row =>
                         {
                             var offset = ((row * data.Width) + col) * depth;
-                            pictureGrid[col, row] = FindClosest(buffer[offset], buffer[offset+1], buffer[offset+2]);
+                            pictureGrid[col, row] = FindClosest(buffer[offset+2], buffer[offset+1], buffer[offset]);
 
                             po.CancellationToken.ThrowIfCancellationRequested();
                         });
@@ -538,14 +540,12 @@ namespace PhotoManager
 
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
         {
-            var cols = (int)(inputBitmap.Size.Width / numScale.Value);
-            var rows = (int)(inputBitmap.Size.Width / numScale.Value);
-            labelSize.Text = $"[{cols} x {rows}]";
+            UpdateSizes();
         }
 
         private void UpdateDest()
         {
-            int zoomScale = zoom * tempScale * outMult;
+            int zoomScale = zoom * outMult;
             var segs = xSize / zoom;
 
             var xStart = (xx / outScale) - (segs / 2);
@@ -612,6 +612,10 @@ namespace PhotoManager
                     progress = (row * 100) / rows.Count();
                 }
 
+                var outX = xSize * outMult;
+                var outY = ySize * outMult;
+                outputRoi = new Rectangle((outputBitmap.Width - outX) / 2, (outputBitmap.Height - outY) / 2, outX, outY);
+
                 int count = 0;
                 progress = 0;
                 statusText = "Building output image.";
@@ -623,29 +627,35 @@ namespace PhotoManager
                     po.CancellationToken = abortThread.Token;
                     po.MaxDegreeOfParallelism = maxThreads;
 
-                    //Parallel.ForEach(pictureSet, po, pic =>
-                    foreach(var pic in pictureSet)
+                    using (Graphics g = Graphics.FromImage(outputBitmap))
                     {
-                        var image = LoadBitmap(pic.Key, zoomScale);
-
-                        using (Graphics g = Graphics.FromImage(outputBitmap))
+                        Parallel.ForEach(pictureSet, po, pic =>
+                        //foreach(var pic in pictureSet)
                         {
+                            var image = LoadBitmap(pic.Key, zoomScale);
+
                             foreach (var loc in pic.Value)
                             {
+                                outputMutex.WaitOne();
                                 g.DrawImage(image, new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale));
+                                count++;
+                                outputMutex.ReleaseMutex();
                             }
 
-                            count++;
-                        }
+                            bOuputReady = true;
 
-                        //po.CancellationToken.ThrowIfCancellationRequested();
+                            po.CancellationToken.ThrowIfCancellationRequested();
 
-                        var currentProg = (count * 100) / (rows.Count() * cols.Count());
-                        if (currentProg > progress)
-                        {
-                            progress = currentProg;
-                        }
-                    }//);
+                            var currentProg = (count * 100) / (rows.Count() * cols.Count());
+                            if (currentProg > progress)
+                            {
+                                progress = currentProg;
+                                var elapsed = DateTime.UtcNow - startTime;
+                                var remaining = (elapsed / progress) * (100 - progress);
+                                statusText = $"Building output image. ~{remaining.ToString(@"hh\:mm\:ss")} remaining.";
+                            }
+                        });
+                    }
                 }
                 catch (OperationCanceledException ex)
                 {
@@ -656,13 +666,6 @@ namespace PhotoManager
                 {
                     //abortThread.Dispose();
                 }
-
-                //CvInvoke.Resize(outputMat, outputMat, new Size(outputMat.Cols / tempScale, outputMat.Rows / tempScale), 0, 0, Inter.Area);
-                var outX = xSize * outMult;
-                var outY = ySize * outMult;
-                outputRoi = new Rectangle((outputBitmap.Width - outX) / 2, (outputBitmap.Height - outY) / 2, outX, outY);
-
-                bOuputReady = true;
 
                 TimeSpan buildTime = DateTime.UtcNow.Subtract(startTime);
                 statusText = $"Build completed in {buildTime.Minutes}m {buildTime.Seconds}s.";
@@ -683,6 +686,7 @@ namespace PhotoManager
 
             using (Graphics g = Graphics.FromImage(loadedBitmap))
             {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                 Bitmap src = inputImage as Bitmap;
                 g.DrawImage(src, new Rectangle(0, 0, zoom, zoom), roi, GraphicsUnit.Pixel);
             }
@@ -712,18 +716,22 @@ namespace PhotoManager
             {
                 var scaledSize = (pictureDest.Width < pictureDest.Height ? pictureDest.Width : pictureDest.Height);
 
-                Bitmap croppedBitmap = new Bitmap(outputRoi.Width, outputRoi.Height);
+                Bitmap croppedBitmap = new Bitmap(scaledSize, scaledSize);
 
                 using (Graphics g = Graphics.FromImage(croppedBitmap))
                 {
+                    outputMutex.WaitOne();
+
                     g.DrawImage(outputBitmap, new Rectangle(0, 0, scaledSize, scaledSize),
                                      outputRoi,
                                      GraphicsUnit.Pixel);
+                
+                    bOuputReady = false;
+                    
+                    outputMutex.ReleaseMutex();
                 }
 
                 pictureDest.Image = croppedBitmap;
-
-                bOuputReady = false;
             }
         }
 
@@ -790,17 +798,22 @@ namespace PhotoManager
             }
         }
 
-        private void trackBar2_Scroll(object sender, EventArgs e)
-        {
-            tempScale = (int)Math.Pow(2, trackBar2.Value);
-            labelScale.Text = $"x{tempScale}";
-
-        }
-
         private void trackBar3_Scroll(object sender, EventArgs e)
         {
-            outMult = (int)Math.Pow(2, trackBar3.Value);
+            UpdateSizes();
+        }
+
+        public void UpdateSizes()
+        {
+            var cols = (int)(inputBitmap.Size.Width / numScale.Value);
+            var rows = (int)(inputBitmap.Size.Width / numScale.Value);
+            labelSize.Text = $"[{cols} x {rows}]";
+
+            trackBar3.Maximum = 23170 / rows;
+            outMult = trackBar3.Value;
             labelMult.Text = $"x{outMult}";
+            labelOutSize.Text = $"[{cols* outMult} x {rows* outMult}]";
+
         }
 
         private void btnUpdate_Click(object sender, EventArgs e)
