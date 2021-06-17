@@ -37,7 +37,7 @@ namespace PhotoManager
 
         private Mat inputMat;
         private Mat outputMat;
-        private Mat tempMat;
+        private Rectangle outputRoi;
         private bool bOuputReady = false;
 
         private int maxThreads = 7;
@@ -558,14 +558,12 @@ namespace PhotoManager
 
             try
             {
-                outputMat = new Mat(new Size(xSize * outMult, ySize * outMult), inputMat.Depth, inputMat.NumberOfChannels);
-
                 if ((segs * zoom) < xSize)
                 {
                     segs += 2;
                 }
 
-                 tempMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
+                outputMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
             }
             catch (Exception ex)
             {
@@ -573,12 +571,16 @@ namespace PhotoManager
                 return;
             }
 
-            if ((outputMat != null) && (tempMat != null))
+            if (outputMat != null)
             {
                 Dictionary<int, List<(int, int)>> pictureSet = new Dictionary<int, List<(int, int)>> { };
 
                 var cols = Enumerable.Range(0, segs);
                 var rows = Enumerable.Range(0, segs);
+
+                progress = 0;
+
+                statusText = "Sorting output images.";
 
                 foreach (var row in rows)
                 {
@@ -598,6 +600,8 @@ namespace PhotoManager
                 }
 
                 int count = 0;
+                progress = 0;
+                statusText = "Building output image.";
 
                 try
                 {
@@ -613,7 +617,7 @@ namespace PhotoManager
                         {
                             Rectangle roi = new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale);
 
-                            Mat target = new Mat(tempMat, roi);
+                            Mat target = new Mat(outputMat, roi);
                             image.CopyTo(target);
                         }
 
@@ -636,11 +640,10 @@ namespace PhotoManager
                     //abortThread.Dispose();
                 }
 
-                CvInvoke.Resize(tempMat, tempMat, new Size(tempMat.Cols / tempScale, tempMat.Rows / tempScale), 0, 0, Inter.Area);
-                Rectangle roi = new Rectangle((tempMat.Cols - outputMat.Cols) / 2, (tempMat.Rows - outputMat.Rows) / 2, xSize*outMult, ySize*outMult);
-
-                Mat croppedMat = new Mat(tempMat, roi);
-                croppedMat.CopyTo(outputMat);
+                //CvInvoke.Resize(outputMat, outputMat, new Size(outputMat.Cols / tempScale, outputMat.Rows / tempScale), 0, 0, Inter.Area);
+                var outX = xSize * outMult;
+                var outY = ySize * outMult;
+                outputRoi = new Rectangle((outputMat.Cols - outX) / 2, (outputMat.Rows - outY) / 2, outX, outY);
 
                 bOuputReady = true;
             }
@@ -691,8 +694,10 @@ namespace PhotoManager
         {
             if (bOuputReady)
             {
+                Mat croppedMat = new Mat(outputMat, outputRoi);
+
                 Mat image = new Mat();
-                CvInvoke.Resize(outputMat, image, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
+                CvInvoke.Resize(croppedMat, image, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
                 Emgu.CV.Util.VectorOfByte buf = new();
                 CvInvoke.Imencode(".jpg", image, buf);
                 MemoryStream stream = new MemoryStream(buf.ToArray());
@@ -725,7 +730,8 @@ namespace PhotoManager
 
         private void btnSave_Click(object sender, EventArgs e)
         {
-            CvInvoke.Imwrite("composite.jpg", outputMat);
+            Mat croppedMat = new Mat(outputMat, outputRoi);
+            CvInvoke.Imwrite("composite.jpg", croppedMat);
         }
 
         private void CompositeMaker_FormClosing(object sender, FormClosingEventArgs e)
