@@ -654,25 +654,14 @@ namespace PhotoManager
             progress = 0;
         }
 
-        ObjectCache matCache = MemoryCache.Default;
-
         private Mat LoadMat(string path, int zoom = 1)
         {
-            Mat image = matCache[$"{path}_{zoom}"] as Mat;
+            Mat image = CvInvoke.Imread(path);
+            var minsize = Math.Min(image.Cols, image.Rows);
+            Rectangle roi = new Rectangle((image.Cols - minsize) >> 1, (image.Rows - minsize) >> 1, minsize, minsize);
+            Mat croppedImage = new Mat(image, roi);
 
-            if (image == null)
-            {
-                CacheItemPolicy policy = new CacheItemPolicy();
-
-                image = CvInvoke.Imread(path);
-                var minsize = Math.Min(image.Cols, image.Rows);
-                Rectangle roi = new Rectangle((image.Cols - minsize) >> 1, (image.Rows - minsize) >> 1, minsize, minsize);
-                Mat croppedImage = new Mat(image, roi);
-                
-                CvInvoke.Resize(croppedImage, image, new Size(zoom, zoom), 0, 0, Inter.Area);
-
-                matCache.Set($"{path}_{zoom}", image, policy);
-            }
+            CvInvoke.Resize(croppedImage, image, new Size(zoom, zoom), 0, 0, Inter.Area);
 
             return image;
         }
