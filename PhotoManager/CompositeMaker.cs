@@ -37,6 +37,7 @@ namespace PhotoManager
 
         private Mat inputMat;
         private Mat outputMat;
+        private Mat tempMat;
 
         private int maxThreads = 7;
 
@@ -552,9 +553,7 @@ namespace PhotoManager
             if ((yStart + segs) > ySize)
             {
                 yStart = ySize - segs;
-            }
-
-            Mat tempMat;
+            }            
 
             try
             {
@@ -575,41 +574,65 @@ namespace PhotoManager
 
             if ((outputMat != null) && (tempMat != null))
             {
+                Dictionary<int, List<(int, int)>> pictureSet = new Dictionary<int, List<(int, int)>> { };
+
                 var cols = Enumerable.Range(0, segs);
                 var rows = Enumerable.Range(0, segs);
 
                 foreach (var row in rows)
                 {
-                    try
-                    {
-                        ParallelOptions po = new ParallelOptions();
-                        po.CancellationToken = abortThread.Token;
-                        po.MaxDegreeOfParallelism = maxThreads;
 
-                        Parallel.ForEach(cols, po, col =>
+                    foreach (var col in cols)
+                    {
+                        var index = pictureGrid[xStart + col, yStart + row];
+                        if (!pictureSet.ContainsKey(index))
                         {
-                            Mat image = LoadMat(pictureGrid[xStart + col, yStart + row], zoomScale);
+                            pictureSet[index] = new List<(int, int)> { };
+                        }
 
-                            Rectangle roi = new Rectangle(col * zoomScale, row * zoomScale, zoomScale, zoomScale);
-
-                            Mat target = new Mat(tempMat, roi);
-                            image.CopyTo(target);
-
-                            po.CancellationToken.ThrowIfCancellationRequested();
-                        });
-                    }
-                    catch (OperationCanceledException ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                        return;
-                    }
-                    finally
-                    {
-                        //abortThread.Dispose();
+                        pictureSet[index].Add((col, row));
                     }
 
                     progress = (row * 100) / rows.Count();
+                }
 
+                int count = 0;
+
+                try
+                {
+                    ParallelOptions po = new ParallelOptions();
+                    po.CancellationToken = abortThread.Token;
+                    po.MaxDegreeOfParallelism = maxThreads;
+
+                    Parallel.ForEach(pictureSet, po, pic =>
+                    {
+                        Mat image = LoadMat(pic.Key, zoomScale);
+
+                        foreach (var loc in pic.Value)
+                        {
+                            Rectangle roi = new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale);
+
+                            Mat target = new Mat(tempMat, roi);
+                            image.CopyTo(target);
+                        }
+
+                        po.CancellationToken.ThrowIfCancellationRequested();
+
+                        var currentProg = (count * 100) / (rows.Count() * cols.Count());
+                        if (currentProg > progress)
+                        {
+                            progress = currentProg;
+                        }
+                    });
+                }
+                catch (OperationCanceledException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    return;
+                }
+                finally
+                {
+                    //abortThread.Dispose();
                 }
 
                 CvInvoke.Resize(tempMat, tempMat, new Size(tempMat.Cols / tempScale, tempMat.Rows / tempScale), 0, 0, Inter.Area);
