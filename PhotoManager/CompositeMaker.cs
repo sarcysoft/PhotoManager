@@ -623,7 +623,8 @@ namespace PhotoManager
                     po.CancellationToken = abortThread.Token;
                     po.MaxDegreeOfParallelism = maxThreads;
 
-                    Parallel.ForEach(pictureSet, po, pic =>
+                    //Parallel.ForEach(pictureSet, po, pic =>
+                    foreach(var pic in pictureSet)
                     {
                         var image = LoadBitmap(pic.Key, zoomScale);
 
@@ -637,14 +638,14 @@ namespace PhotoManager
                             count++;
                         }
 
-                        po.CancellationToken.ThrowIfCancellationRequested();
+                        //po.CancellationToken.ThrowIfCancellationRequested();
 
                         var currentProg = (count * 100) / (rows.Count() * cols.Count());
                         if (currentProg > progress)
                         {
                             progress = currentProg;
                         }
-                    });
+                    }//);
                 }
                 catch (OperationCanceledException ex)
                 {
