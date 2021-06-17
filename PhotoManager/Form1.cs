@@ -26,6 +26,7 @@ namespace PhotoManager
             if (folderBrowser.ShowDialog() == DialogResult.OK)
             {
                 txtPath.Text = folderBrowser.SelectedPath;
+                ScanFolders();
             }
         }
 
@@ -51,6 +52,10 @@ namespace PhotoManager
 
         private void btnScan_Click(object sender, EventArgs e)
         {
+        }
+
+        private void ScanFolders()
+        { 
             char[] trimChars = new char[] { '\\' };
 
             listPhotos = new List<string> { };

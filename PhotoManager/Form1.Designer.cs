@@ -31,7 +31,6 @@ namespace PhotoManager
         {
             this.txtPath = new System.Windows.Forms.TextBox();
             this.btnBrowse = new System.Windows.Forms.Button();
-            this.btnScan = new System.Windows.Forms.Button();
             this.treeFiles = new System.Windows.Forms.TreeView();
             this.treePhotos = new System.Windows.Forms.TreeView();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
@@ -55,16 +54,6 @@ namespace PhotoManager
             this.btnBrowse.Text = "Browse";
             this.btnBrowse.UseVisualStyleBackColor = true;
             this.btnBrowse.Click += new System.EventHandler(this.btnBrowse_Click);
-            // 
-            // btnScan
-            // 
-            this.btnScan.Location = new System.Drawing.Point(527, 12);
-            this.btnScan.Name = "btnScan";
-            this.btnScan.Size = new System.Drawing.Size(75, 23);
-            this.btnScan.TabIndex = 2;
-            this.btnScan.Text = "Scan";
-            this.btnScan.UseVisualStyleBackColor = true;
-            this.btnScan.Click += new System.EventHandler(this.btnScan_Click);
             // 
             // treeFiles
             // 
@@ -122,7 +111,6 @@ namespace PhotoManager
             this.ClientSize = new System.Drawing.Size(945, 551);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.tableLayoutPanel1);
-            this.Controls.Add(this.btnScan);
             this.Controls.Add(this.btnBrowse);
             this.Controls.Add(this.txtPath);
             this.Name = "Form1";
@@ -137,7 +125,6 @@ namespace PhotoManager
 
         private System.Windows.Forms.TextBox txtPath;
         private System.Windows.Forms.Button btnBrowse;
-        private System.Windows.Forms.Button btnScan;
         private System.Windows.Forms.TreeView treeFiles;
         private System.Windows.Forms.TreeView treePhotos;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;

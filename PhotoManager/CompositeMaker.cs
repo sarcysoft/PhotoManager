@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.Caching;
+using Newtonsoft.Json;
 
 namespace PhotoManager
 {
@@ -20,6 +21,8 @@ namespace PhotoManager
     {
         private string inputPath;
         private List<string> listPhotos;
+        private Dictionary<string, byte[]> rgbHashTable;
+        private bool hashTableModified = false;
 
         public class ColourDetails
         {
@@ -35,14 +38,17 @@ namespace PhotoManager
         private Mat inputMat;
         private Mat outputMat;
 
+        private int maxThreads = 7;
+
         private Thread activeThread;
 
         private int xx = 0;
         private int yy = 0;
         private int scale = 10;
         private int xSize, ySize;
-        private int outScale;
+        private int outScale = 2;
 
+        private int photoCount = 0;
         private int colours = 0;
         private int coverage = 0;
         private int virtualCover = 0;
@@ -50,11 +56,12 @@ namespace PhotoManager
 
         private int progress = 0;
         private int zoom = 1;
-        private int tempScale = 4;
+        private int tempScale = 1;
         private int outMult = 1;
 
+        private string statusText = "";
 
-        private bool abortThread = false;
+        private CancellationTokenSource abortThread = new CancellationTokenSource();
 
         public CompositeMaker()
         {
@@ -170,81 +177,183 @@ namespace PhotoManager
             UpdateBestFit();
         }
 
-        public class rgb
+        public static string CreateMD5(string input)
         {
-            public byte r;
-            public byte g;
-            public byte b;
-
-            public rgb(byte[] input)
+            // Use input string to calculate MD5 hash
+            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
             {
-                r = input[0];
-                g = input[1];
-                b = input[2];
+                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
+                byte[] hashBytes = md5.ComputeHash(inputBytes);
+
+                // Convert the byte array to hexadecimal string
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("X2"));
+                }
+                return sb.ToString();
             }
+        }
+
+        private string GetHash(FileInfo fi)
+        {
+
+            string hash = $"{CreateMD5(fi.FullName)}{fi.Length}{fi.CreationTime}";
+
+            return hash;
         }
 
         private void BuildLookupArray()
         {
-            int count = 0;
+            photoCount = 0;
             colours = 0;
 
-            rgb[] rgbArray = new rgb[listPhotos.Count];
+            rgbHashTable = new Dictionary<string, byte[]> { };
 
             var iRange = Enumerable.Range(0, listPhotos.Count);
-            Parallel.ForEach(iRange, i =>
+
+            Dictionary<string, string> hashPhotos = new Dictionary<string, string> { };
+
+            foreach (var i in listPhotos)
             {
-                try
-                {
-                    var image = LoadMat(i);
+                FileInfo fi = new FileInfo(i);
 
-                    var value = image.GetRawData(0, 0);
-                    if (value != null)
+                string hash = GetHash(fi);
+                hashPhotos[hash] = i;
+            }
+
+            ParallelOptions po = new ParallelOptions();
+            po.CancellationToken = abortThread.Token;
+            po.MaxDegreeOfParallelism = maxThreads;
+
+            try
+            { 
+                if (File.Exists("rgbhashtable.json"))
+                {
+                    using (StreamReader file = new StreamReader("rgbhashtable.json"))
                     {
-                        rgbArray[i] = new rgb(value);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
+                        string dictString = file.ReadToEnd();
+                        rgbHashTable = JsonConvert.DeserializeObject<Dictionary<string, byte[]>>(dictString);
 
-                progress = (count * 100) / listPhotos.Count;
-            });
-
-            Parallel.ForEach(iRange, i =>
-            {
-                try
-                {
-                    var value = rgbArray[i];
-                    if (value != null)
-                    {
-
-                        if (lookupArray[r, g, b] == null)
+                        foreach(var i in rgbHashTable)
                         {
-                            //Console.WriteLine($"New colour [{r}, {g}, {b}]");
-                            lookupArray[r, g, b] = new ColourDetails();
-                            lookupArray[r, g, b].Actual = true;
-                            lookupArray[r, g, b].Photos = new List<int> { };
-                            colours++;
+                            if (hashPhotos.ContainsKey(i.Key))
+                            {
+                                byte[] rgbValue = i.Value; ;
+                                if (rgbValue != null)
+                                {
+                                    int r = (int)rgbValue[0] >> colourScale;
+                                    int g = (int)rgbValue[1] >> colourScale;
+                                    int b = (int)rgbValue[2] >> colourScale;
+
+                                    if (lookupArray[r, g, b] == null)
+                                    {
+                                        //Console.WriteLine($"New colour [{r}, {g}, {b}]");
+                                        lookupArray[r, g, b] = new ColourDetails();
+                                        lookupArray[r, g, b].Actual = true;
+                                        lookupArray[r, g, b].Photos = new List<int> { };
+                                        colours++;
+                                    }
+                                    photoCount++;
+                                    lookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(hashPhotos[i.Key]));
+                                    hashPhotos[i.Key] = null;
+                                }
+                            }
                         }
-                        count++;
-                        lookupArray[r, g, b].Photos.Add(i);
                     }
                 }
-                catch (Exception ex)
+
+                //iRange = Enumerable.Range(0, listPhotos.Count);
+
+                Parallel.ForEach(hashPhotos, po, i =>
                 {
-                    Console.WriteLine(ex.Message);
-                }
+                    if (i.Value != null)
+                    {
+                        try
+                        {
+                            byte[] rgbValue = null;
 
-                progress = (count * 100) / listPhotos.Count;
-            });
+                            try
+                            {
+                                if (rgbHashTable.ContainsKey(i.Key))
+                                {
+                                    rgbValue = rgbHashTable[i.Key];
+                                }
+                                else
+                                {
+                                    var image = LoadMat(i.Value);
 
-            Console.WriteLine($"Photos = {count};\nUnique = {colours}");
-            coverage = (100 * colours) / ((256 >> colourScale) * (256 >> colourScale) * (256 >> colourScale));
+                                    var value = image.GetRawData(0, 0);
+                                    if (value != null)
+                                    {
+                                        rgbValue = value;
+                                        rgbHashTable[i.Key] = rgbValue;
+                                        hashTableModified = true;
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                            }
+
+                            if (rgbValue != null)
+                            {
+                                try
+                                {
+                                    int r = (int)rgbValue[0] >> colourScale;
+                                    int g = (int)rgbValue[1] >> colourScale;
+                                    int b = (int)rgbValue[2] >> colourScale;
+
+                                    if (lookupArray[r, g, b] == null)
+                                    {
+                                        //Console.WriteLine($"New colour [{r}, {g}, {b}]");
+                                        lookupArray[r, g, b] = new ColourDetails();
+                                        lookupArray[r, g, b].Actual = true;
+                                        lookupArray[r, g, b].Photos = new List<int> { };
+                                        colours++;
+                                    }
+
+                                    photoCount++;
+                                    lookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(i.Value));
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine(ex.Message);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                        }
+                    }
+
+                    po.CancellationToken.ThrowIfCancellationRequested();
+
+                    coverage = (100 * colours) / ((256 >> colourScale) * (256 >> colourScale) * (256 >> colourScale));
+
+                    progress = (photoCount * 100) / listPhotos.Count;
+                    statusText = $"Assigning image {photoCount} of {listPhotos.Count} to look-up array.";
+                });
+            }
+            catch (OperationCanceledException ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
+            finally
+            {
+                //abortThread.Dispose();
+            }
+
+            Console.WriteLine($"Photos = {photoCount};\nUnique = {colours}");
             Console.WriteLine($"Coverage = {coverage}%");
 
+            SaveHashTable();
+
             progress = 0;
+            statusText = "";
         }
 
         private int FindMin(int v, int s)
@@ -270,7 +379,7 @@ namespace PhotoManager
 
             int searchSize = 0;
 
-            while (lookupList.Count == 0)
+            while (lookupList.Count < 50)
             {
                 int x1 = FindMin(r, searchSize);
                 int x2 = FindMax(r, searchSize);
@@ -294,7 +403,13 @@ namespace PhotoManager
                                 {
                                     if (item.Photos != null)
                                     {
-                                        lookupList.AddRange(item.Photos);
+                                        foreach (var photo in item.Photos)
+                                        {
+                                            if (!lookupList.Contains(photo))
+                                            {
+                                                lookupList.Add(photo);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -304,7 +419,7 @@ namespace PhotoManager
                 searchSize++;
             }
 
-            if (searchSize > 1)
+            if (lookupArray[r, g, b] == null)
             {
                 lookupArray[r, g, b] = new();
                 lookupArray[r, g, b].Actual = false;
@@ -333,25 +448,31 @@ namespace PhotoManager
 
         private void Create()
         {
-            outScale = (int)numScale.Value;
-
             xSize = (int)(inputMat.Cols / outScale);
             ySize = (int)(inputMat.Rows / outScale);
-            
-            Mat scaledMat = new();
-            CvInvoke.Resize(inputMat, scaledMat, new Size(xSize, ySize), 0, 0, Inter.Area);
-
-            pictureGrid = new int[xSize, ySize];
-
-            var cols = Enumerable.Range(0, xSize);
-            var rows = Enumerable.Range(0, ySize);
-            
-            foreach (var col in cols)
+            try
             {
-                Parallel.ForEach(rows, row =>
+
+                Mat scaledMat = new();
+                CvInvoke.Resize(inputMat, scaledMat, new Size(xSize, ySize), 0, 0, Inter.Area);
+
+                pictureGrid = new int[xSize, ySize];
+
+                var cols = Enumerable.Range(0, xSize);
+                var rows = Enumerable.Range(0, ySize);
+
+                foreach (var col in cols)
                 {
-                    var value = scaledMat.GetRawData(row, col);
-                    pictureGrid[col, row] = FindClosest(value[0], value[1], value[2]);
+                    try
+                    {
+                        ParallelOptions po = new ParallelOptions();
+                        po.CancellationToken = abortThread.Token;
+                        po.MaxDegreeOfParallelism = maxThreads;
+
+                        Parallel.ForEach(rows, po, row =>
+                        {
+                            var value = scaledMat.GetRawData(row, col);
+                            pictureGrid[col, row] = FindClosest(value[0], value[1], value[2]);
 
 #if false
                     var image = LoadMat(pictureGrid[col, row]);
@@ -361,14 +482,27 @@ namespace PhotoManager
                     Mat target = new Mat(outputMat, roi);
                     image.CopyTo(target);                    
 #endif
-                });
+                            po.CancellationToken.ThrowIfCancellationRequested();
+                        });
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        return;
+                    }
+                    finally
+                    {
+                        //abortThread.Dispose();
+                    }
 
-                progress = (col * 100) / cols.Count();
-                //System.GC.Collect();
-                if (abortThread)
-                {
-                    return;
+                    progress = (col * 100) / cols.Count();
+                    //System.GC.Collect();
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
             }
 
             progress = 0;
@@ -380,6 +514,8 @@ namespace PhotoManager
         {
             btnCreate.Enabled = false;
             btnUpdate.Enabled = false;
+
+            outScale = (int)numScale.Value;
 
             activeThread = new Thread(Create);
             activeThread.Start();
@@ -395,16 +531,7 @@ namespace PhotoManager
         private void UpdateDest()
         {
             int zoomScale = zoom * tempScale * outMult;
-
-            outputMat = new Mat(new Size(xSize * outMult, ySize * outMult), inputMat.Depth, inputMat.NumberOfChannels);
-
             var segs = xSize / zoom;
-            if ((segs * zoom) < xSize)
-            {
-                segs += 2;
-            }
-
-            Mat tempMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
 
             var xStart = (xx / outScale) - (segs / 2);
             var yStart = (yy / outScale) - (segs / 2);
@@ -427,29 +554,62 @@ namespace PhotoManager
                 yStart = ySize - segs;
             }
 
-            if (outputMat != null)
+            Mat tempMat;
+
+            try
+            {
+                outputMat = new Mat(new Size(xSize * outMult, ySize * outMult), inputMat.Depth, inputMat.NumberOfChannels);
+
+                if ((segs * zoom) < xSize)
+                {
+                    segs += 2;
+                }
+
+                 tempMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
+
+            if ((outputMat != null) && (tempMat != null))
             {
                 var cols = Enumerable.Range(0, segs);
                 var rows = Enumerable.Range(0, segs);
 
                 foreach (var row in rows)
                 {
-                    Parallel.ForEach(cols, col =>
+                    try
                     {
-                        Mat image = LoadMat(pictureGrid[xStart + col, yStart + row], zoomScale);
+                        ParallelOptions po = new ParallelOptions();
+                        po.CancellationToken = abortThread.Token;
+                        po.MaxDegreeOfParallelism = maxThreads;
 
-                        Rectangle roi = new Rectangle(col * zoomScale, row * zoomScale, zoomScale, zoomScale);
+                        Parallel.ForEach(cols, po, col =>
+                        {
+                            Mat image = LoadMat(pictureGrid[xStart + col, yStart + row], zoomScale);
 
-                        Mat target = new Mat(tempMat, roi);
-                        image.CopyTo(target);
-                    });
+                            Rectangle roi = new Rectangle(col * zoomScale, row * zoomScale, zoomScale, zoomScale);
+
+                            Mat target = new Mat(tempMat, roi);
+                            image.CopyTo(target);
+
+                            po.CancellationToken.ThrowIfCancellationRequested();
+                        });
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        return;
+                    }
+                    finally
+                    {
+                        //abortThread.Dispose();
+                    }
 
                     progress = (row * 100) / rows.Count();
 
-                    if (abortThread)
-                    {
-                        return;
-                    }
                 }
 
                 CvInvoke.Resize(tempMat, tempMat, new Size(tempMat.Cols / tempScale, tempMat.Rows / tempScale), 0, 0, Inter.Area);
@@ -464,9 +624,8 @@ namespace PhotoManager
 
         ObjectCache matCache = MemoryCache.Default;
 
-        private Mat LoadMat(int fileNo, int zoom = 1)
+        private Mat LoadMat(string path, int zoom = 1)
         {
-            string path = listPhotos[fileNo];
             Mat image = matCache[$"{path}_{zoom}"] as Mat;
 
             if (image == null)
@@ -484,6 +643,11 @@ namespace PhotoManager
             }
 
             return image;
+        }
+
+        private Mat LoadMat(int fileNo, int zoom = 1)
+        {
+            return LoadMat(listPhotos[fileNo], zoom);
         }
 
         private void trackBar1_Scroll(object sender, EventArgs e)
@@ -513,14 +677,18 @@ namespace PhotoManager
         private void timer1_Tick(object sender, EventArgs e)
         {
             progressBar1.Value = progress;
-
-            lblCover.Text = $"Colour coverage = {coverage}%. Virtual = {virtualCover}%.";
+            labelStatus.Text = statusText;
+            
+            lblCover.Text = $"Colour coverage = {coverage}%. Virtual = {virtualCover - coverage}%.";
 
             if ((activeThread != null) && (!activeThread.IsAlive))
             {
                 activeThread = null;
                 btnCreate.Enabled = true;
-                btnUpdate.Enabled = true;
+                if (pictureGrid != null)
+                {
+                    btnUpdate.Enabled = true;
+                }
             }
 
 
@@ -536,10 +704,30 @@ namespace PhotoManager
         {
             if (activeThread != null)
             {
-                abortThread = true;
+                abortThread.Cancel();
+
+                while (activeThread.IsAlive)
+                {
+                    Thread.Sleep(10);
+                }
             }
+
+            SaveHashTable();
         }
 
+        private void SaveHashTable()
+        {
+            if (hashTableModified)
+            {
+                using (StreamWriter file = new StreamWriter("rgbhashtable.json"))
+                {
+                    string dictString = JsonConvert.SerializeObject(rgbHashTable);
+                    file.Write(dictString);
+                }
+
+                hashTableModified = false;
+            }
+        }
 
         private void trackBar2_Scroll(object sender, EventArgs e)
         {

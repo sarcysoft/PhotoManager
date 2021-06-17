@@ -49,6 +49,7 @@ namespace PhotoManager
             this.trackBar3 = new System.Windows.Forms.TrackBar();
             this.labelMult = new System.Windows.Forms.Label();
             this.labelScale = new System.Windows.Forms.Label();
+            this.labelStatus = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureDest)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureTarget)).BeginInit();
@@ -128,7 +129,7 @@ namespace PhotoManager
             this.numScale.Size = new System.Drawing.Size(42, 23);
             this.numScale.TabIndex = 6;
             this.numScale.Value = new decimal(new int[] {
-            10,
+            2,
             0,
             0,
             0});
@@ -188,7 +189,7 @@ namespace PhotoManager
             // lblCover
             // 
             this.lblCover.AutoSize = true;
-            this.lblCover.Location = new System.Drawing.Point(13, 415);
+            this.lblCover.Location = new System.Drawing.Point(13, 375);
             this.lblCover.Name = "lblCover";
             this.lblCover.Size = new System.Drawing.Size(38, 15);
             this.lblCover.TabIndex = 13;
@@ -211,13 +212,12 @@ namespace PhotoManager
             this.trackBar2.Name = "trackBar2";
             this.trackBar2.Size = new System.Drawing.Size(297, 45);
             this.trackBar2.TabIndex = 15;
-            this.trackBar2.Value = 2;
             this.trackBar2.Scroll += new System.EventHandler(this.trackBar2_Scroll);
             // 
             // trackBar3
             // 
             this.trackBar3.Location = new System.Drawing.Point(489, 395);
-            this.trackBar3.Maximum = 4;
+            this.trackBar3.Maximum = 8;
             this.trackBar3.Name = "trackBar3";
             this.trackBar3.Size = new System.Drawing.Size(297, 45);
             this.trackBar3.TabIndex = 16;
@@ -239,13 +239,23 @@ namespace PhotoManager
             this.labelScale.Name = "labelScale";
             this.labelScale.Size = new System.Drawing.Size(19, 15);
             this.labelScale.TabIndex = 18;
-            this.labelScale.Text = "x4";
+            this.labelScale.Text = "x1";
+            // 
+            // labelStatus
+            // 
+            this.labelStatus.AutoSize = true;
+            this.labelStatus.Location = new System.Drawing.Point(13, 406);
+            this.labelStatus.Name = "labelStatus";
+            this.labelStatus.Size = new System.Drawing.Size(38, 15);
+            this.labelStatus.TabIndex = 19;
+            this.labelStatus.Text = "label2";
             // 
             // CompositeMaker
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(904, 461);
+            this.Controls.Add(this.labelStatus);
             this.Controls.Add(this.labelScale);
             this.Controls.Add(this.labelMult);
             this.Controls.Add(this.progressBar1);
@@ -307,5 +317,6 @@ namespace PhotoManager
         private System.Windows.Forms.TrackBar trackBar3;
         private System.Windows.Forms.Label labelMult;
         private System.Windows.Forms.Label labelScale;
+        private System.Windows.Forms.Label labelStatus;
     }
 }
