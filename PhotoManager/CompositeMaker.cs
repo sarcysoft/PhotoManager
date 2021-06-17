@@ -463,6 +463,8 @@ namespace PhotoManager
                 var cols = Enumerable.Range(0, xSize);
                 var rows = Enumerable.Range(0, ySize);
 
+                statusText = "Creating picture grid.";
+
                 foreach (var col in cols)
                 {
                     try
@@ -619,6 +621,7 @@ namespace PhotoManager
 
                             Mat target = new Mat(outputMat, roi);
                             image.CopyTo(target);
+                            count++;
                         }
 
                         po.CancellationToken.ThrowIfCancellationRequested();
