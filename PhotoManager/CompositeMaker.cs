@@ -604,6 +604,7 @@ namespace PhotoManager
                 int count = 0;
                 progress = 0;
                 statusText = "Building output image.";
+                DateTime startTime = DateTime.UtcNow;
 
                 try
                 {
@@ -649,6 +650,9 @@ namespace PhotoManager
                 outputRoi = new Rectangle((outputMat.Cols - outX) / 2, (outputMat.Rows - outY) / 2, outX, outY);
 
                 bOuputReady = true;
+
+                TimeSpan buildTime = DateTime.UtcNow.Subtract(startTime);
+                statusText = $"Build completed in {buildTime.Minutes}m {buildTime.Seconds}s.";
             }
 
             progress = 0;
