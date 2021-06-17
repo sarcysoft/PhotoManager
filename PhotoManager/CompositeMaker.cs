@@ -1,5 +1,5 @@
-﻿using Emgu.CV;
-using Emgu.CV.CvEnum;
+﻿//using Emgu.CV;
+//using Emgu.CV.CvEnum;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.Caching;
 using Newtonsoft.Json;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace PhotoManager
 {
@@ -35,8 +37,9 @@ namespace PhotoManager
         private ColourDetails[,,] lookupArray = new ColourDetails[(256 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
         private int[,] pictureGrid;
 
-        private Mat inputMat;
-        private Mat outputMat;
+        private Bitmap inputBitmap;
+        private Bitmap outputBitmap;
+
         private Rectangle outputRoi;
         private bool bOuputReady = false;
 
@@ -46,7 +49,7 @@ namespace PhotoManager
 
         private int xx = 0;
         private int yy = 0;
-        private int scale = 10;
+        private int scale = 1;
         private int xSize, ySize;
         private int outScale = 2;
 
@@ -82,29 +85,37 @@ namespace PhotoManager
 
         private void CompositeMaker_Load(object sender, EventArgs e)
         {
-            inputMat = CvInvoke.Imread(inputPath);
+            Image inputImage = Image.FromFile(inputPath);
 
-            var minsize = Math.Min(inputMat.Cols, inputMat.Rows);
-            Rectangle roi = new Rectangle((inputMat.Cols - minsize) >> 1, (inputMat.Rows - minsize) >> 1, minsize, minsize);
-            inputMat = new Mat(inputMat, roi);
+            var minsize = Math.Min(inputImage.Size.Width, inputImage.Size.Height);
+            Rectangle roi = new Rectangle((inputImage.Size.Width - minsize) >> 1, (inputImage.Size.Height - minsize) >> 1, minsize, minsize);
 
-            var scaleX = inputMat.Cols / pictureSource.Size.Width;
-            var scaleY = inputMat.Rows / pictureSource.Size.Height;
+            var scaledSize = (pictureSource.Width < pictureSource.Height) ? pictureSource.Width : pictureSource.Height;
 
+            inputBitmap = new Bitmap(minsize, minsize);
+            Bitmap scaledBitmap = new Bitmap(scaledSize, scaledSize);
 
-            scale = (scaleX > scaleY) ? scaleX : scaleY;
+            using (Graphics g = Graphics.FromImage(inputBitmap))
+            {
+                Bitmap src = inputImage as Bitmap;
+                g.DrawImage(src, new Rectangle(0, 0, inputBitmap.Width, inputBitmap.Height),
+                                 roi,
+                                 GraphicsUnit.Pixel);
+            }
 
-            xx = inputMat.Cols / 2;
-            yy = inputMat.Rows / 2;
+            using (Graphics g = Graphics.FromImage(scaledBitmap))
+            {
+                g.DrawImage(inputBitmap, new Rectangle(0, 0, scaledSize, scaledSize));
+            }
 
-            Mat inputScaled = new Mat();
-            CvInvoke.Resize(inputMat, inputScaled, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
-            Emgu.CV.Util.VectorOfByte buf = new();
-            CvInvoke.Imencode(".jpg", inputScaled, buf);
-            MemoryStream stream = new MemoryStream(buf.ToArray());
-            pictureSource.Image = Image.FromStream(stream);
+            pictureSource.Image = scaledBitmap;
 
-            labelSize.Text = $"[{(int)(inputMat.Cols / numScale.Value)} x {(int)(inputMat.Rows / numScale.Value)}]";
+            scale = minsize / scaledSize;
+
+            xx = inputBitmap.Width / 2;
+            yy = inputBitmap.Height / 2;
+
+            labelSize.Text = $"[{(int)(inputBitmap.Width / numScale.Value)} x {(int)(inputBitmap.Height / numScale.Value)}]";
 
             trackBar1.Value = 0;
 
@@ -127,9 +138,9 @@ namespace PhotoManager
                 xx = 0;
             }
 
-            if (xx + 1 > inputMat.Cols)
+            if (xx + 1 > inputBitmap.Width)
             {
-                xx = inputMat.Cols - 1;
+                xx = inputBitmap.Width - 1;
             }
 
             if (yy < 0)
@@ -137,31 +148,29 @@ namespace PhotoManager
                 yy = 0;
             }
 
-            if (yy + 1 > inputMat.Rows)
+            if (yy + 1 > inputBitmap.Height)
             {
-                yy = inputMat.Rows - 1;
+                yy = inputBitmap.Height - 1;
             }
 
-            Rectangle roi = new Rectangle(xx, yy, 1, 1);
-
-            Mat target = new Mat(inputMat, roi);
-            CvInvoke.Resize(target, target, new Size(pictureTarget.Width, pictureTarget.Height), 0, 0, Inter.Area);
-            Emgu.CV.Util.VectorOfByte buf = new();
-            CvInvoke.Imencode(".jpg", target, buf);
-            MemoryStream stream = new MemoryStream(buf.ToArray());
-            pictureTarget.Image = Image.FromStream(stream);
+            Bitmap targetBitmap = new Bitmap(pictureTarget.Width, pictureTarget.Height);
+            using (Graphics gfx = Graphics.FromImage(targetBitmap))
+            {
+                using (SolidBrush brush = new SolidBrush(Color.FromArgb(inputBitmap.GetPixel(xx, yy).ToArgb())))
+                {
+                    gfx.FillRectangle(brush, 0, 0, pictureTarget.Width, pictureTarget.Height);
+                }
+            }
+            pictureTarget.Image = targetBitmap;
         }
 
         private void UpdateBestFit()
         {
-            var value = inputMat.GetRawData(yy, xx);
-            var best = FindClosest(value[0], value[1], value[2]);
-            var image = LoadMat(best);
-            CvInvoke.Resize(image, image, new Size(pictureBestFit.Width, pictureBestFit.Height), 0, 0, Inter.Area);
-            Emgu.CV.Util.VectorOfByte buf = new();
-            CvInvoke.Imencode(".jpg", image, buf);
-            MemoryStream stream = new MemoryStream(buf.ToArray());
-            pictureBestFit.Image = Image.FromStream(stream);
+            var value = inputBitmap.GetPixel(xx, yy);
+            var best = FindClosest(value.R, value.G, value.B);
+
+            var image = LoadBitmap(best, pictureBestFit.Width);
+            pictureBestFit.Image = image;
         }
 
         private void numSegmentSize_ValueChanged(object sender, EventArgs e)
@@ -283,15 +292,12 @@ namespace PhotoManager
                                 }
                                 else
                                 {
-                                    var image = LoadMat(i.Value);
+                                    var image = LoadBitmap(i.Value);
 
-                                    var value = image.GetRawData(0, 0);
-                                    if (value != null)
-                                    {
-                                        rgbValue = value;
-                                        rgbHashTable[i.Key] = rgbValue;
-                                        hashTableModified = true;
-                                    }
+                                    var value = image.GetPixel(0, 0);
+                                    rgbValue = new byte[] { value.R, value.G, value.B };
+                                    rgbHashTable[i.Key] = rgbValue;
+                                    hashTableModified = true;
                                 }
                             }
                             catch (Exception ex)
@@ -381,7 +387,7 @@ namespace PhotoManager
 
             int searchSize = 0;
 
-            while (lookupList.Count < 50)
+            while (lookupList.Count < ((listPhotos.Count < 1000) ? 1 : 50))
             {
                 int x1 = FindMin(r, searchSize);
                 int x2 = FindMax(r, searchSize);
@@ -450,13 +456,17 @@ namespace PhotoManager
 
         private void Create()
         {
-            xSize = (int)(inputMat.Cols / outScale);
-            ySize = (int)(inputMat.Rows / outScale);
+            xSize = (int)(inputBitmap.Size.Width / outScale);
+            ySize = (int)(inputBitmap.Size.Height / outScale);
             try
             {
 
-                Mat scaledMat = new();
-                CvInvoke.Resize(inputMat, scaledMat, new Size(xSize, ySize), 0, 0, Inter.Area);
+                Bitmap scaledBitmap = new Bitmap(xSize, xSize);
+
+                using (Graphics g = Graphics.FromImage(scaledBitmap))
+                {
+                    g.DrawImage(inputBitmap, new Rectangle(0, 0, xSize, xSize));
+                }
 
                 pictureGrid = new int[xSize, ySize];
 
@@ -464,6 +474,15 @@ namespace PhotoManager
                 var rows = Enumerable.Range(0, ySize);
 
                 statusText = "Creating picture grid.";
+
+                var rect = new Rectangle(0, 0, scaledBitmap.Width, scaledBitmap.Height);
+                var data = scaledBitmap.LockBits(rect, ImageLockMode.ReadWrite, scaledBitmap.PixelFormat);
+                var depth = Bitmap.GetPixelFormatSize(data.PixelFormat) / 8; //bytes per pixel
+
+                var buffer = new byte[data.Width * data.Height * depth];
+
+                //copy pixels to buffer
+                Marshal.Copy(data.Scan0, buffer, 0, buffer.Length);
 
                 foreach (var col in cols)
                 {
@@ -475,17 +494,9 @@ namespace PhotoManager
 
                         Parallel.ForEach(rows, po, row =>
                         {
-                            var value = scaledMat.GetRawData(row, col);
-                            pictureGrid[col, row] = FindClosest(value[0], value[1], value[2]);
+                            var offset = ((row * data.Width) + col) * depth;
+                            pictureGrid[col, row] = FindClosest(buffer[offset], buffer[offset+1], buffer[offset+2]);
 
-#if false
-                    var image = LoadMat(pictureGrid[col, row]);
-
-                    Rectangle roi = new Rectangle(col * zoom, row * zoom, zoom, zoom);
-
-                    Mat target = new Mat(outputMat, roi);
-                    image.CopyTo(target);                    
-#endif
                             po.CancellationToken.ThrowIfCancellationRequested();
                         });
                     }
@@ -527,8 +538,8 @@ namespace PhotoManager
 
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
         {
-            var cols = (int)(inputMat.Cols / numScale.Value);
-            var rows = (int)(inputMat.Rows / numScale.Value);
+            var cols = (int)(inputBitmap.Size.Width / numScale.Value);
+            var rows = (int)(inputBitmap.Size.Width / numScale.Value);
             labelSize.Text = $"[{cols} x {rows}]";
         }
 
@@ -565,7 +576,7 @@ namespace PhotoManager
                     segs += 2;
                 }
 
-                outputMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
+                outputBitmap = new Bitmap(segs * zoomScale, segs * zoomScale);
             }
             catch (Exception ex)
             {
@@ -573,7 +584,7 @@ namespace PhotoManager
                 return;
             }
 
-            if (outputMat != null)
+            if (outputBitmap != null)
             {
                 Dictionary<int, List<(int, int)>> pictureSet = new Dictionary<int, List<(int, int)>> { };
 
@@ -614,14 +625,15 @@ namespace PhotoManager
 
                     Parallel.ForEach(pictureSet, po, pic =>
                     {
-                        Mat image = LoadMat(pic.Key, zoomScale);
+                        var image = LoadBitmap(pic.Key, zoomScale);
 
-                        foreach (var loc in pic.Value)
+                        using (Graphics g = Graphics.FromImage(outputBitmap))
                         {
-                            Rectangle roi = new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale);
+                            foreach (var loc in pic.Value)
+                            {
+                                g.DrawImage(image, new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale));
+                            }
 
-                            Mat target = new Mat(outputMat, roi);
-                            image.CopyTo(target);
                             count++;
                         }
 
@@ -647,7 +659,7 @@ namespace PhotoManager
                 //CvInvoke.Resize(outputMat, outputMat, new Size(outputMat.Cols / tempScale, outputMat.Rows / tempScale), 0, 0, Inter.Area);
                 var outX = xSize * outMult;
                 var outY = ySize * outMult;
-                outputRoi = new Rectangle((outputMat.Cols - outX) / 2, (outputMat.Rows - outY) / 2, outX, outY);
+                outputRoi = new Rectangle((outputBitmap.Width - outX) / 2, (outputBitmap.Height - outY) / 2, outX, outY);
 
                 bOuputReady = true;
 
@@ -658,21 +670,28 @@ namespace PhotoManager
             progress = 0;
         }
 
-        private Mat LoadMat(string path, int zoom = 1)
+        private Bitmap LoadBitmap(string path, int zoom = 1)
         {
-            Mat image = CvInvoke.Imread(path);
-            var minsize = Math.Min(image.Cols, image.Rows);
-            Rectangle roi = new Rectangle((image.Cols - minsize) >> 1, (image.Rows - minsize) >> 1, minsize, minsize);
-            Mat croppedImage = new Mat(image, roi);
 
-            CvInvoke.Resize(croppedImage, image, new Size(zoom, zoom), 0, 0, Inter.Area);
+            Image inputImage = Image.FromFile(path);
 
-            return image;
+            var minsize = Math.Min(inputImage.Size.Width, inputImage.Size.Height);
+            Rectangle roi = new Rectangle((inputImage.Size.Width - minsize) >> 1, (inputImage.Size.Height - minsize) >> 1, minsize, minsize);
+
+            Bitmap loadedBitmap = new Bitmap(zoom, zoom);
+
+            using (Graphics g = Graphics.FromImage(loadedBitmap))
+            {
+                Bitmap src = inputImage as Bitmap;
+                g.DrawImage(src, new Rectangle(0, 0, zoom, zoom), roi, GraphicsUnit.Pixel);
+            }
+
+            return loadedBitmap;
         }
 
-        private Mat LoadMat(int fileNo, int zoom = 1)
+        private Bitmap LoadBitmap(int fileNo, int zoom = 1)
         {
-            return LoadMat(listPhotos[fileNo], zoom);
+            return LoadBitmap(listPhotos[fileNo], zoom);
         }
 
         private void trackBar1_Scroll(object sender, EventArgs e)
@@ -683,21 +702,25 @@ namespace PhotoManager
 
         private void pictureDest_DoubleClick(object sender, EventArgs e)
         {
-            CvInvoke.Imshow("Composite", outputMat);
+
         }
 
         private void UpdateDestPic()
         {
             if (bOuputReady)
             {
-                Mat croppedMat = new Mat(outputMat, outputRoi);
+                var scaledSize = (pictureDest.Width < pictureDest.Height ? pictureDest.Width : pictureDest.Height);
 
-                Mat image = new Mat();
-                CvInvoke.Resize(croppedMat, image, new Size(inputMat.Cols / scale, inputMat.Rows / scale), 0, 0, Inter.Area);
-                Emgu.CV.Util.VectorOfByte buf = new();
-                CvInvoke.Imencode(".jpg", image, buf);
-                MemoryStream stream = new MemoryStream(buf.ToArray());
-                pictureDest.Image = Image.FromStream(stream);
+                Bitmap croppedBitmap = new Bitmap(outputRoi.Width, outputRoi.Height);
+
+                using (Graphics g = Graphics.FromImage(croppedBitmap))
+                {
+                    g.DrawImage(outputBitmap, new Rectangle(0, 0, scaledSize, scaledSize),
+                                     outputRoi,
+                                     GraphicsUnit.Pixel);
+                }
+
+                pictureDest.Image = croppedBitmap;
 
                 bOuputReady = false;
             }
@@ -726,8 +749,15 @@ namespace PhotoManager
 
         private void btnSave_Click(object sender, EventArgs e)
         {
-            Mat croppedMat = new Mat(outputMat, outputRoi);
-            CvInvoke.Imwrite("composite.jpg", croppedMat);
+            Bitmap croppedBitmap = new Bitmap(outputRoi.Width, outputRoi.Height);
+
+            using (Graphics g = Graphics.FromImage(croppedBitmap))
+            {
+                g.DrawImage(outputBitmap, new Rectangle(0, 0, outputRoi.Width, outputRoi.Height),
+                                 outputRoi,
+                                 GraphicsUnit.Pixel);
+            }
+            croppedBitmap.Save("composite.jpg");
         }
 
         private void CompositeMaker_FormClosing(object sender, FormClosingEventArgs e)
