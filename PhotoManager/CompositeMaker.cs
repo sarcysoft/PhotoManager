@@ -1,5 +1,5 @@
-﻿//using Emgu.CV;
-//using Emgu.CV.CvEnum;
+﻿using Emgu.CV;
+using Emgu.CV.CvEnum;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -37,8 +37,8 @@ namespace PhotoManager
         private ColourDetails[,,] lookupArray = new ColourDetails[(256 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
         private int[,] pictureGrid;
 
-        private Bitmap inputBitmap;
-        private Bitmap outputBitmap;
+        private Mat inputMat;
+        private Mat outputMat;
 
         private Mutex outputMutex = new Mutex();
 
@@ -87,35 +87,25 @@ namespace PhotoManager
 
         private void CompositeMaker_Load(object sender, EventArgs e)
         {
-            Image inputImage = Image.FromFile(inputPath);
+            inputMat = CvInvoke.Imread(inputPath);
 
-            var minsize = Math.Min(inputImage.Size.Width, inputImage.Size.Height);
-            Rectangle roi = new Rectangle((inputImage.Size.Width - minsize) >> 1, (inputImage.Size.Height - minsize) >> 1, minsize, minsize);
+            var minsize = Math.Min(inputMat.Cols, inputMat.Height);
+            Rectangle roi = new Rectangle((inputMat.Cols - minsize) >> 1, (inputMat.Height - minsize) >> 1, minsize, minsize);
+            inputMat = new Mat(inputMat, roi);
 
             var scaledSize = (pictureSource.Width < pictureSource.Height) ? pictureSource.Width : pictureSource.Height;
 
-            inputBitmap = new Bitmap(minsize, minsize);
-            Bitmap scaledBitmap = new Bitmap(scaledSize, scaledSize);
-
-            using (Graphics g = Graphics.FromImage(inputBitmap))
-            {
-                Bitmap src = inputImage as Bitmap;
-                g.DrawImage(src, new Rectangle(0, 0, inputBitmap.Width, inputBitmap.Height),
-                                 roi,
-                                 GraphicsUnit.Pixel);
-            }
-
-            using (Graphics g = Graphics.FromImage(scaledBitmap))
-            {
-                g.DrawImage(inputBitmap, new Rectangle(0, 0, scaledSize, scaledSize));
-            }
-
-            pictureSource.Image = scaledBitmap;
+            Mat scaledMat = new Mat();
+            CvInvoke.Resize(inputMat, scaledMat, new Size(scaledSize, scaledSize), 0, 0, Inter.Area);
+            Emgu.CV.Util.VectorOfByte buf = new();
+            CvInvoke.Imencode(".jpg", scaledMat, buf);
+            MemoryStream stream = new MemoryStream(buf.ToArray());
+            pictureSource.Image = Image.FromStream(stream);
 
             scale = minsize / scaledSize;
 
-            xx = inputBitmap.Width / 2;
-            yy = inputBitmap.Height / 2;
+            xx = inputMat.Cols / 2;
+            yy = inputMat.Height / 2;
 
             numScale.Value = minsize / 350;
             UpdateSizes(); ;
@@ -141,9 +131,9 @@ namespace PhotoManager
                 xx = 0;
             }
 
-            if (xx + 1 > inputBitmap.Width)
+            if (xx + 1 > inputMat.Cols)
             {
-                xx = inputBitmap.Width - 1;
+                xx = inputMat.Cols - 1;
             }
 
             if (yy < 0)
@@ -151,29 +141,32 @@ namespace PhotoManager
                 yy = 0;
             }
 
-            if (yy + 1 > inputBitmap.Height)
+            if (yy + 1 > inputMat.Rows)
             {
-                yy = inputBitmap.Height - 1;
+                yy = inputMat.Rows - 1;
             }
 
-            Bitmap targetBitmap = new Bitmap(pictureTarget.Width, pictureTarget.Height);
-            using (Graphics gfx = Graphics.FromImage(targetBitmap))
-            {
-                using (SolidBrush brush = new SolidBrush(Color.FromArgb(inputBitmap.GetPixel(xx, yy).ToArgb())))
-                {
-                    gfx.FillRectangle(brush, 0, 0, pictureTarget.Width, pictureTarget.Height);
-                }
-            }
-            pictureTarget.Image = targetBitmap;
+            Rectangle roi = new Rectangle(xx, yy, 1, 1);
+            Mat targetMat = new Mat(inputMat, roi);
+            CvInvoke.Resize(targetMat, targetMat, new Size(pictureTarget.Width, pictureTarget.Height), 0, 0, Inter.Area);
+            Emgu.CV.Util.VectorOfByte buf = new();
+            CvInvoke.Imencode(".jpg", targetMat, buf);
+            MemoryStream stream = new MemoryStream(buf.ToArray());
+            pictureTarget.Image = Image.FromStream(stream);
         }
 
         private void UpdateBestFit()
         {
-            var value = inputBitmap.GetPixel(xx, yy);
-            var best = FindClosest(value.R, value.G, value.B);
+            var value = inputMat.GetRawData(xx, yy);
+            var best = FindClosest(value[0], value[1], value[2]);
+            var bestMat = LoadMat(best, pictureBestFit.Width);
 
-            var image = LoadBitmap(best, pictureBestFit.Width);
-            pictureBestFit.Image = image;
+            CvInvoke.Resize(bestMat, bestMat, new Size(pictureBestFit.Width, pictureBestFit.Height), 0, 0, Inter.Area);
+            Emgu.CV.Util.VectorOfByte buf = new();
+            CvInvoke.Imencode(".jpg", bestMat, buf);
+            MemoryStream stream = new MemoryStream(buf.ToArray());
+            pictureBestFit.Image = Image.FromStream(stream);
+
         }
 
         private void numSegmentSize_ValueChanged(object sender, EventArgs e)
@@ -295,10 +288,10 @@ namespace PhotoManager
                                 }
                                 else
                                 {
-                                    var image = LoadBitmap(i.Value);
+                                    var image = LoadMat(i.Value);
 
-                                    var value = image.GetPixel(0, 0);
-                                    rgbValue = new byte[] { value.R, value.G, value.B };
+                                    var value = image.GetRawData(0, 0);
+                                    rgbValue = new byte[] { value[0], value[1], value[2] };
                                     rgbHashTable[i.Key] = rgbValue;
                                     hashTableModified = true;
                                 }
@@ -459,17 +452,12 @@ namespace PhotoManager
 
         private void Create()
         {
-            xSize = (int)(inputBitmap.Size.Width / outScale);
-            ySize = (int)(inputBitmap.Size.Height / outScale);
+            xSize = (int)(inputMat.Cols / outScale);
+            ySize = (int)(inputMat.Rows / outScale);
             try
             {
-
-                Bitmap scaledBitmap = new Bitmap(xSize, xSize);
-
-                using (Graphics g = Graphics.FromImage(scaledBitmap))
-                {
-                    g.DrawImage(inputBitmap, new Rectangle(0, 0, xSize, xSize));
-                }
+                Mat scaledMat = new();
+                CvInvoke.Resize(inputMat, scaledMat, new Size(xSize, ySize), 0, 0, Inter.Area);
 
                 pictureGrid = new int[xSize, ySize];
 
@@ -477,15 +465,6 @@ namespace PhotoManager
                 var rows = Enumerable.Range(0, ySize);
 
                 statusText = "Creating picture grid.";
-
-                var rect = new Rectangle(0, 0, scaledBitmap.Width, scaledBitmap.Height);
-                var data = scaledBitmap.LockBits(rect, ImageLockMode.ReadWrite, scaledBitmap.PixelFormat);
-                var depth = Bitmap.GetPixelFormatSize(data.PixelFormat) / 8; //bytes per pixel
-
-                var buffer = new byte[data.Width * data.Height * depth];
-
-                //copy pixels to buffer
-                Marshal.Copy(data.Scan0, buffer, 0, buffer.Length);
 
                 foreach (var col in cols)
                 {
@@ -497,8 +476,8 @@ namespace PhotoManager
 
                         Parallel.ForEach(rows, po, row =>
                         {
-                            var offset = ((row * data.Width) + col) * depth;
-                            pictureGrid[col, row] = FindClosest(buffer[offset+2], buffer[offset+1], buffer[offset]);
+                            var value = scaledMat.GetRawData(row, col);
+                            pictureGrid[col, row] = FindClosest(value[0], value[1], value[2]);
 
                             po.CancellationToken.ThrowIfCancellationRequested();
                         });
@@ -563,7 +542,7 @@ namespace PhotoManager
                 if (precacheQueue.Count > 0)
                 {
                     var index = precacheQueue.Dequeue();
-                    LoadBitmap(index, zoomScale, true);
+                    LoadMat(index, zoomScale, true);
                 }
                 else
                 {
@@ -575,7 +554,7 @@ namespace PhotoManager
 
         private void BuildOutput(SectionDetails details, int zoomScale, ParallelOptions po)
         {
-            if (outputBitmap != null)
+            if (outputMat != null)
             {
                 Dictionary<int, List<(int, int)>> pictureSet = new Dictionary<int, List<(int, int)>> { };
 
@@ -600,32 +579,30 @@ namespace PhotoManager
                     }
                 }
 
-                Bitmap localBitmap = new Bitmap(details.xSegs * zoomScale, details.ySegs * zoomScale);
-                using (Graphics g = Graphics.FromImage(localBitmap))
+                var localMat = new Mat(new Size(details.xSegs * zoomScale, details.ySegs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
+                foreach (var pic in pictureSet)
                 {
-                    foreach (var pic in pictureSet)
+                    var image = LoadMat(pic.Key, zoomScale);
+
+                    foreach (var loc in pic.Value)
                     {
-                        var image = LoadBitmap(pic.Key, zoomScale);
-
-                        foreach (var loc in pic.Value)
-                        {
-                            g.DrawImage(image, new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale));
-                        }
-
-                        po.CancellationToken.ThrowIfCancellationRequested();
+                        Rectangle localRoi = new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale);
+                        Mat localTarget = new Mat(outputMat, localRoi);
+                        image.CopyTo(localTarget);
                     }
-                }
-                
-                outputMutex.WaitOne();
 
-                using (Graphics g = Graphics.FromImage(outputBitmap))
-                {
-                    g.DrawImage(localBitmap, new Rectangle(details.xOffset * zoomScale, details.yOffset * zoomScale, details.xSegs * zoomScale, details.ySegs * zoomScale));
+                    po.CancellationToken.ThrowIfCancellationRequested();
                 }
+
+                //outputMutex.WaitOne();
+
+                Rectangle roi = new Rectangle(details.xOffset * zoomScale, details.yOffset * zoomScale, details.xSegs * zoomScale, details.ySegs * zoomScale);
+                Mat roiTarget = new Mat(outputMat, roi);
+                localMat.CopyTo(roiTarget);
 
                 bOuputReady = true;
 
-                outputMutex.ReleaseMutex();
+                //outputMutex.ReleaseMutex();
             }
         }
 
@@ -662,7 +639,7 @@ namespace PhotoManager
                     segs += 2;
                 }
 
-                outputBitmap = new Bitmap(segs * zoomScale, segs * zoomScale);
+                outputMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
             }
             catch (Exception ex)
             {
@@ -670,12 +647,12 @@ namespace PhotoManager
                 return;
             }
 
-            if (outputBitmap != null)
+            if (outputMat != null)
             {
 
                 var outX = xSize * outMult;
                 var outY = ySize * outMult;
-                outputRoi = new Rectangle((outputBitmap.Width - outX) / 2, (outputBitmap.Height - outY) / 2, outX, outY);
+                outputRoi = new Rectangle((outputMat.Cols - outX) / 2, (outputMat.Rows - outY) / 2, outX, outY);
 
                 int count = 0;
                 progress = 0;
@@ -697,7 +674,7 @@ namespace PhotoManager
                     po.CancellationToken = abortThread.Token;
                     po.MaxDegreeOfParallelism = 6;
 
-                    const int sectSize = 25;
+                    const int sectSize = 5;
                     var sections = segs / sectSize;
                     if (sections * sectSize < segs)
                     {
@@ -753,30 +730,24 @@ namespace PhotoManager
 
         Mutex loadMutex = new Mutex();
 
-        private Bitmap LoadBitmap(string path, int zoom = 1, bool cacheOnly = false)
+        private Mat LoadMat(string path, int zoom = 1, bool cacheOnly = false)
         {
             var cacheKey = $"{path}_{zoom}";
-            Bitmap loadedBitmap = bitmapCache[cacheKey] as Bitmap;
+            Mat tempMat = bitmapCache[cacheKey] as Mat;
+            Mat loadedMat = null;
 
-            if (loadedBitmap == null)
+            if (tempMat == null)
             {
                 CacheItemPolicy policy = new CacheItemPolicy();
 
-                Image inputImage = Image.FromFile(path);
+                tempMat = CvInvoke.Imread(path);
 
-                var minsize = Math.Min(inputImage.Size.Width, inputImage.Size.Height);
-                Rectangle roi = new Rectangle((inputImage.Size.Width - minsize) >> 1, (inputImage.Size.Height - minsize) >> 1, minsize, minsize);
+                var minsize = Math.Min(tempMat.Cols, tempMat.Rows);
+                Rectangle roi = new Rectangle((tempMat.Cols - minsize) >> 1, (tempMat.Rows - minsize) >> 1, minsize, minsize);
 
-                loadedBitmap = new Bitmap(zoom, zoom);
+                CvInvoke.Resize(tempMat, tempMat, new Size(zoom, zoom), 0, 0, Inter.Area);
 
-                using (Graphics g = Graphics.FromImage(loadedBitmap))
-                {
-                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
-                    Bitmap src = inputImage as Bitmap;
-                    g.DrawImage(src, new Rectangle(0, 0, zoom, zoom), roi, GraphicsUnit.Pixel);
-                }
-
-                bitmapCache.Set(cacheKey, loadedBitmap, policy);
+                bitmapCache.Set(cacheKey, tempMat, policy);
 
                 cacheMiss++;
             }
@@ -784,20 +755,20 @@ namespace PhotoManager
             {
                 cacheHit++;
             }
-
+            /*
             if (!cacheOnly)
             {
                 loadMutex.WaitOne();
-                loadedBitmap = new Bitmap(loadedBitmap);
+                loadedMat = tempMat.Clone();
                 loadMutex.ReleaseMutex();
             }
-
-            return loadedBitmap;
+            */
+            return tempMat;
         }
 
-        private Bitmap LoadBitmap(int fileNo, int zoom = 1, bool cacheOnly = false)
+        private Mat LoadMat(int fileNo, int zoom = 1, bool cacheOnly = false)
         {
-            return LoadBitmap(listPhotos[fileNo], zoom, cacheOnly);
+            return LoadMat(listPhotos[fileNo], zoom, cacheOnly);
         }
 
         private void trackBar1_Scroll(object sender, EventArgs e)
@@ -808,7 +779,7 @@ namespace PhotoManager
 
         private void pictureDest_DoubleClick(object sender, EventArgs e)
         {
-
+            CvInvoke.Imshow("Comnposite", outputMat);
         }
 
         private void UpdateDestPic()
@@ -817,22 +788,20 @@ namespace PhotoManager
             {
                 var scaledSize = (pictureDest.Width < pictureDest.Height ? pictureDest.Width : pictureDest.Height);
 
-                Bitmap croppedBitmap = new Bitmap(scaledSize, scaledSize);
+                Mat croppedMat = new Mat(outputMat, outputRoi);
 
-                using (Graphics g = Graphics.FromImage(croppedBitmap))
-                {
-                    outputMutex.WaitOne();
+                //outputMutex.WaitOne();
 
-                    g.DrawImage(outputBitmap, new Rectangle(0, 0, scaledSize, scaledSize),
-                                     outputRoi,
-                                     GraphicsUnit.Pixel);
-                
-                    bOuputReady = false;
-                    
-                    outputMutex.ReleaseMutex();
-                }
+                Mat scaledMat = new Mat();
+                CvInvoke.Resize(croppedMat, scaledMat, new Size(scaledSize, scaledSize), 0, 0, Inter.Area);
+                Emgu.CV.Util.VectorOfByte buf = new();
+                CvInvoke.Imencode(".jpg", scaledMat, buf);
+                MemoryStream stream = new MemoryStream(buf.ToArray());
+                bOuputReady = false;
 
-                pictureDest.Image = croppedBitmap;
+                //outputMutex.ReleaseMutex();
+
+                pictureDest.Image = Image.FromStream(stream);
             }
         }
 
@@ -859,15 +828,8 @@ namespace PhotoManager
 
         private void btnSave_Click(object sender, EventArgs e)
         {
-            Bitmap croppedBitmap = new Bitmap(outputRoi.Width, outputRoi.Height);
-
-            using (Graphics g = Graphics.FromImage(croppedBitmap))
-            {
-                g.DrawImage(outputBitmap, new Rectangle(0, 0, outputRoi.Width, outputRoi.Height),
-                                 outputRoi,
-                                 GraphicsUnit.Pixel);
-            }
-            croppedBitmap.Save("composite.jpg");
+            Mat croppedMat = new Mat(outputMat, outputRoi);
+            CvInvoke.Imwrite("composite.jpg", croppedMat);
         }
 
         private void CompositeMaker_FormClosing(object sender, FormClosingEventArgs e)
@@ -906,8 +868,8 @@ namespace PhotoManager
 
         public void UpdateSizes()
         {
-            var cols = (int)(inputBitmap.Size.Width / numScale.Value);
-            var rows = (int)(inputBitmap.Size.Width / numScale.Value);
+            var cols = (int)(inputMat.Cols / numScale.Value);
+            var rows = (int)(inputMat.Rows / numScale.Value);
             labelSize.Text = $"[{cols} x {rows}]";
 
             trackBar3.Maximum = 23170 / rows;
