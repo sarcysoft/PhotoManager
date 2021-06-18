@@ -45,9 +45,9 @@ namespace PhotoManager
         private Rectangle outputRoi;
         private bool bOuputReady = false;
 
-        private int maxThreads = 7;
-
         private Thread activeThread;
+        private List<Thread> precacheThreads;
+        private bool precacheActive;
 
         private int xx = 0;
         private int yy = 0;
@@ -64,6 +64,7 @@ namespace PhotoManager
         private int progress = 0;
         private int zoom = 1;
         private int outMult = 1;
+        private int zoomScale = 1;
 
         private string statusText = "";
 
@@ -116,7 +117,7 @@ namespace PhotoManager
             xx = inputBitmap.Width / 2;
             yy = inputBitmap.Height / 2;
 
-            numScale.Value = minsize / 250;
+            numScale.Value = minsize / 350;
             UpdateSizes(); ;
 
             trackBar1.Value = 0;
@@ -237,7 +238,7 @@ namespace PhotoManager
 
             ParallelOptions po = new ParallelOptions();
             po.CancellationToken = abortThread.Token;
-            po.MaxDegreeOfParallelism = maxThreads;
+            //po.MaxDegreeOfParallelism = 7;
 
             try
             { 
@@ -492,7 +493,7 @@ namespace PhotoManager
                     {
                         ParallelOptions po = new ParallelOptions();
                         po.CancellationToken = abortThread.Token;
-                        po.MaxDegreeOfParallelism = maxThreads;
+                        //po.MaxDegreeOfParallelism = 7;
 
                         Parallel.ForEach(rows, po, row =>
                         {
@@ -543,9 +544,94 @@ namespace PhotoManager
             UpdateSizes();
         }
 
+        public class SectionDetails
+        {
+            public int xOffset;
+            public int yOffset;
+            public int xSegs;
+            public int ySegs;
+        }
+
+        Queue<int> precacheQueue = new Queue<int>(10000) { };
+
+        private void PrecacheTask()
+        {
+            precacheActive = true;
+
+            do
+            {
+                if (precacheQueue.Count > 0)
+                {
+                    var index = precacheQueue.Dequeue();
+                    LoadBitmap(index, zoomScale, true);
+                }
+                else
+                {
+                    Thread.Sleep(100);
+                }
+            }
+            while (precacheActive);
+        }
+
+        private void BuildOutput(SectionDetails details, int zoomScale, ParallelOptions po)
+        {
+            if (outputBitmap != null)
+            {
+                Dictionary<int, List<(int, int)>> pictureSet = new Dictionary<int, List<(int, int)>> { };
+
+                var cols = Enumerable.Range(0, details.xSegs);
+                var rows = Enumerable.Range(0, details.ySegs);
+
+                foreach (var row in rows)
+                {
+                    foreach (var col in cols)
+                    {
+                        var index = pictureGrid[details.xOffset + col, details.yOffset + row];
+                        if (!pictureSet.ContainsKey(index))
+                        {
+                            pictureSet[index] = new List<(int, int)> { };
+                            if (precacheQueue.Count < 10000)
+                            {
+                                precacheQueue.Enqueue(index);
+                            }
+                        }
+
+                        pictureSet[index].Add((col, row));
+                    }
+                }
+
+                Bitmap localBitmap = new Bitmap(details.xSegs * zoomScale, details.ySegs * zoomScale);
+                using (Graphics g = Graphics.FromImage(localBitmap))
+                {
+                    foreach (var pic in pictureSet)
+                    {
+                        var image = LoadBitmap(pic.Key, zoomScale);
+
+                        foreach (var loc in pic.Value)
+                        {
+                            g.DrawImage(image, new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale));
+                        }
+
+                        po.CancellationToken.ThrowIfCancellationRequested();
+                    }
+                }
+                
+                outputMutex.WaitOne();
+
+                using (Graphics g = Graphics.FromImage(outputBitmap))
+                {
+                    g.DrawImage(localBitmap, new Rectangle(details.xOffset * zoomScale, details.yOffset * zoomScale, details.xSegs * zoomScale, details.ySegs * zoomScale));
+                }
+
+                bOuputReady = true;
+
+                outputMutex.ReleaseMutex();
+            }
+        }
+
         private void UpdateDest()
         {
-            int zoomScale = zoom * outMult;
+            zoomScale = zoom * outMult;
             var segs = xSize / zoom;
 
             var xStart = (xx / outScale) - (segs / 2);
@@ -586,31 +672,6 @@ namespace PhotoManager
 
             if (outputBitmap != null)
             {
-                Dictionary<int, List<(int, int)>> pictureSet = new Dictionary<int, List<(int, int)>> { };
-
-                var cols = Enumerable.Range(0, segs);
-                var rows = Enumerable.Range(0, segs);
-
-                progress = 0;
-
-                statusText = "Sorting output images.";
-
-                foreach (var row in rows)
-                {
-
-                    foreach (var col in cols)
-                    {
-                        var index = pictureGrid[xStart + col, yStart + row];
-                        if (!pictureSet.ContainsKey(index))
-                        {
-                            pictureSet[index] = new List<(int, int)> { };
-                        }
-
-                        pictureSet[index].Add((col, row));
-                    }
-
-                    progress = (row * 100) / rows.Count();
-                }
 
                 var outX = xSize * outMult;
                 var outY = ySize * outMult;
@@ -621,41 +682,51 @@ namespace PhotoManager
                 statusText = "Building output image.";
                 DateTime startTime = DateTime.UtcNow;
 
+                precacheThreads = new List<Thread>() { };
+
+                for (int i = 0; i < 1; i++)
+                {
+                    var t = new Thread(PrecacheTask);
+                    t.Start();
+                    precacheThreads.Add(t);
+                }
+
                 try
                 {
                     ParallelOptions po = new ParallelOptions();
                     po.CancellationToken = abortThread.Token;
-                    po.MaxDegreeOfParallelism = maxThreads;
+                    po.MaxDegreeOfParallelism = 6;
 
-                    using (Graphics g = Graphics.FromImage(outputBitmap))
+                    const int sectSize = 25;
+                    var sections = segs / sectSize;
+                    if (sections * sectSize < segs)
                     {
-                        Parallel.ForEach(pictureSet, po, pic =>
-                        //foreach(var pic in pictureSet)
-                        {
-                            var image = LoadBitmap(pic.Key, zoomScale);
-
-                            foreach (var loc in pic.Value)
-                            {
-                                outputMutex.WaitOne();
-                                g.DrawImage(image, new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale));
-                                count++;
-                                outputMutex.ReleaseMutex();
-                            }
-
-                            bOuputReady = true;
-
-                            po.CancellationToken.ThrowIfCancellationRequested();
-
-                            var currentProg = (count * 100) / (rows.Count() * cols.Count());
-                            if (currentProg > progress)
-                            {
-                                progress = currentProg;
-                                var elapsed = DateTime.UtcNow - startTime;
-                                var remaining = (elapsed / progress) * (100 - progress);
-                                statusText = $"Building output image. ~{remaining.ToString(@"hh\:mm\:ss")} remaining.";
-                            }
-                        });
+                        sections++;
                     }
+
+                    var sectionRange = Enumerable.Range(0, sections);
+                    List<SectionDetails> sectionList = new() { };
+
+                    foreach(var xSect in sectionRange)
+                    {
+                        foreach (var ySect in sectionRange)
+                        {
+                            SectionDetails details = new SectionDetails();
+                            details.xOffset = xSect * sectSize;
+                            details.yOffset = ySect * sectSize;
+                            details.xSegs = (xSect * sectSize < xSize - sectSize) ? sectSize : xSize - (xSect * sectSize);
+                            details.ySegs = (ySect * sectSize < ySize - sectSize) ? sectSize : ySize - (ySect * sectSize);
+
+                            sectionList.Add(details);
+                        }
+                    }
+
+                    Parallel.ForEach(sectionList, po, sect =>
+                    {
+                        BuildOutput(sect, zoomScale, po);
+                        progress = (100 * count++) / (sections * sections);
+                        po.CancellationToken.ThrowIfCancellationRequested();
+                    });
                 }
                 catch (OperationCanceledException ex)
                 {
@@ -665,7 +736,9 @@ namespace PhotoManager
                 finally
                 {
                     //abortThread.Dispose();
+                    precacheActive = false;
                 }
+
 
                 TimeSpan buildTime = DateTime.UtcNow.Subtract(startTime);
                 statusText = $"Build completed in {buildTime.Minutes}m {buildTime.Seconds}s.";
@@ -674,29 +747,57 @@ namespace PhotoManager
             progress = 0;
         }
 
-        private Bitmap LoadBitmap(string path, int zoom = 1)
+        ObjectCache bitmapCache = MemoryCache.Default;
+        int cacheHit = 0;
+        int cacheMiss = 0;
+
+        Mutex loadMutex = new Mutex();
+
+        private Bitmap LoadBitmap(string path, int zoom = 1, bool cacheOnly = false)
         {
+            var cacheKey = $"{path}_{zoom}";
+            Bitmap loadedBitmap = bitmapCache[cacheKey] as Bitmap;
 
-            Image inputImage = Image.FromFile(path);
-
-            var minsize = Math.Min(inputImage.Size.Width, inputImage.Size.Height);
-            Rectangle roi = new Rectangle((inputImage.Size.Width - minsize) >> 1, (inputImage.Size.Height - minsize) >> 1, minsize, minsize);
-
-            Bitmap loadedBitmap = new Bitmap(zoom, zoom);
-
-            using (Graphics g = Graphics.FromImage(loadedBitmap))
+            if (loadedBitmap == null)
             {
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                Bitmap src = inputImage as Bitmap;
-                g.DrawImage(src, new Rectangle(0, 0, zoom, zoom), roi, GraphicsUnit.Pixel);
+                CacheItemPolicy policy = new CacheItemPolicy();
+
+                Image inputImage = Image.FromFile(path);
+
+                var minsize = Math.Min(inputImage.Size.Width, inputImage.Size.Height);
+                Rectangle roi = new Rectangle((inputImage.Size.Width - minsize) >> 1, (inputImage.Size.Height - minsize) >> 1, minsize, minsize);
+
+                loadedBitmap = new Bitmap(zoom, zoom);
+
+                using (Graphics g = Graphics.FromImage(loadedBitmap))
+                {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
+                    Bitmap src = inputImage as Bitmap;
+                    g.DrawImage(src, new Rectangle(0, 0, zoom, zoom), roi, GraphicsUnit.Pixel);
+                }
+
+                bitmapCache.Set(cacheKey, loadedBitmap, policy);
+
+                cacheMiss++;
+            }
+            else
+            {
+                cacheHit++;
+            }
+
+            if (!cacheOnly)
+            {
+                loadMutex.WaitOne();
+                loadedBitmap = new Bitmap(loadedBitmap);
+                loadMutex.ReleaseMutex();
             }
 
             return loadedBitmap;
         }
 
-        private Bitmap LoadBitmap(int fileNo, int zoom = 1)
+        private Bitmap LoadBitmap(int fileNo, int zoom = 1, bool cacheOnly = false)
         {
-            return LoadBitmap(listPhotos[fileNo], zoom);
+            return LoadBitmap(listPhotos[fileNo], zoom, cacheOnly);
         }
 
         private void trackBar1_Scroll(object sender, EventArgs e)
