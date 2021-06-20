@@ -161,6 +161,11 @@ namespace PhotoManager
                 {
                     listPhotos.Add(f);
                 }
+                
+                foreach (var f in Directory.GetFiles(path, "*.png", enumerationOptions))
+                {
+                    listPhotos.Add(f);
+                }
 
                 listPhotos.Sort();
             }

@@ -49,6 +49,11 @@ namespace PhotoManager
             this.labelMult = new System.Windows.Forms.Label();
             this.labelStatus = new System.Windows.Forms.Label();
             this.labelOutSize = new System.Windows.Forms.Label();
+            this.pictureBestColour = new System.Windows.Forms.PictureBox();
+            this.trackThreshold = new System.Windows.Forms.TrackBar();
+            this.numericSearchSize = new System.Windows.Forms.NumericUpDown();
+            this.numericMaxSearch = new System.Windows.Forms.NumericUpDown();
+            this.checkJpg = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.pictureSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureDest)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureTarget)).BeginInit();
@@ -56,6 +61,10 @@ namespace PhotoManager
             ((System.ComponentModel.ISupportInitialize)(this.numScale)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBestColour)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackThreshold)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericSearchSize)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericMaxSearch)).BeginInit();
             this.SuspendLayout();
             // 
             // pictureSource
@@ -99,7 +108,7 @@ namespace PhotoManager
             // btnCreate
             // 
             this.btnCreate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnCreate.Location = new System.Drawing.Point(211, 441);
+            this.btnCreate.Location = new System.Drawing.Point(413, 445);
             this.btnCreate.Name = "btnCreate";
             this.btnCreate.Size = new System.Drawing.Size(75, 23);
             this.btnCreate.TabIndex = 4;
@@ -111,7 +120,7 @@ namespace PhotoManager
             // 
             this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(13, 443);
+            this.label1.Location = new System.Drawing.Point(13, 431);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(18, 15);
             this.label1.TabIndex = 5;
@@ -120,7 +129,7 @@ namespace PhotoManager
             // numScale
             // 
             this.numScale.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.numScale.Location = new System.Drawing.Point(28, 441);
+            this.numScale.Location = new System.Drawing.Point(28, 429);
             this.numScale.Minimum = new decimal(new int[] {
             1,
             0,
@@ -140,7 +149,7 @@ namespace PhotoManager
             // 
             this.labelSize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelSize.AutoSize = true;
-            this.labelSize.Location = new System.Drawing.Point(86, 443);
+            this.labelSize.Location = new System.Drawing.Point(86, 431);
             this.labelSize.Name = "labelSize";
             this.labelSize.Size = new System.Drawing.Size(69, 15);
             this.labelSize.TabIndex = 7;
@@ -149,7 +158,7 @@ namespace PhotoManager
             // trackBar1
             // 
             this.trackBar1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.trackBar1.Location = new System.Drawing.Point(489, 434);
+            this.trackBar1.Location = new System.Drawing.Point(489, 422);
             this.trackBar1.Maximum = 16;
             this.trackBar1.Name = "trackBar1";
             this.trackBar1.Size = new System.Drawing.Size(297, 45);
@@ -160,7 +169,7 @@ namespace PhotoManager
             // 
             this.labelZoom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelZoom.AutoSize = true;
-            this.labelZoom.Location = new System.Drawing.Point(781, 435);
+            this.labelZoom.Location = new System.Drawing.Point(781, 423);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(19, 15);
             this.labelZoom.TabIndex = 9;
@@ -254,11 +263,65 @@ namespace PhotoManager
             this.labelOutSize.TabIndex = 20;
             this.labelOutSize.Text = "[### x ###]";
             // 
+            // pictureBestColour
+            // 
+            this.pictureBestColour.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.pictureBestColour.Location = new System.Drawing.Point(419, 334);
+            this.pictureBestColour.Name = "pictureBestColour";
+            this.pictureBestColour.Size = new System.Drawing.Size(64, 64);
+            this.pictureBestColour.TabIndex = 21;
+            this.pictureBestColour.TabStop = false;
+            // 
+            // trackThreshold
+            // 
+            this.trackThreshold.Location = new System.Drawing.Point(180, 431);
+            this.trackThreshold.Maximum = 25;
+            this.trackThreshold.Minimum = 1;
+            this.trackThreshold.Name = "trackThreshold";
+            this.trackThreshold.Size = new System.Drawing.Size(222, 45);
+            this.trackThreshold.TabIndex = 22;
+            this.trackThreshold.Value = 12;
+            this.trackThreshold.Scroll += new System.EventHandler(this.trackThreshold_Scroll);
+            // 
+            // numericSearchSize
+            // 
+            this.numericSearchSize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.numericSearchSize.Location = new System.Drawing.Point(28, 456);
+            this.numericSearchSize.Name = "numericSearchSize";
+            this.numericSearchSize.Size = new System.Drawing.Size(42, 23);
+            this.numericSearchSize.TabIndex = 23;
+            this.numericSearchSize.ValueChanged += new System.EventHandler(this.numericSearchSize_ValueChanged);
+            // 
+            // numericMaxSearch
+            // 
+            this.numericMaxSearch.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.numericMaxSearch.Location = new System.Drawing.Point(86, 456);
+            this.numericMaxSearch.Name = "numericMaxSearch";
+            this.numericMaxSearch.Size = new System.Drawing.Size(42, 23);
+            this.numericMaxSearch.TabIndex = 24;
+            this.numericMaxSearch.ValueChanged += new System.EventHandler(this.numericMaxSearch_ValueChanged);
+            // 
+            // checkJpg
+            // 
+            this.checkJpg.AutoSize = true;
+            this.checkJpg.Location = new System.Drawing.Point(489, 508);
+            this.checkJpg.Name = "checkJpg";
+            this.checkJpg.Size = new System.Drawing.Size(81, 19);
+            this.checkJpg.TabIndex = 25;
+            this.checkJpg.Text = "JPEG Limit";
+            this.checkJpg.UseVisualStyleBackColor = true;
+            this.checkJpg.CheckedChanged += new System.EventHandler(this.checkJpg_CheckedChanged);
+            // 
             // CompositeMaker
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(904, 561);
+            this.Controls.Add(this.checkJpg);
+            this.Controls.Add(this.numericMaxSearch);
+            this.Controls.Add(this.numericSearchSize);
+            this.Controls.Add(this.trackThreshold);
+            this.Controls.Add(this.pictureBestColour);
             this.Controls.Add(this.labelOutSize);
             this.Controls.Add(this.labelStatus);
             this.Controls.Add(this.labelMult);
@@ -293,6 +356,10 @@ namespace PhotoManager
             ((System.ComponentModel.ISupportInitialize)(this.numScale)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBestColour)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackThreshold)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericSearchSize)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericMaxSearch)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -319,5 +386,10 @@ namespace PhotoManager
         private System.Windows.Forms.Label labelMult;
         private System.Windows.Forms.Label labelStatus;
         private System.Windows.Forms.Label labelOutSize;
+        private System.Windows.Forms.PictureBox pictureBestColour;
+        private System.Windows.Forms.TrackBar trackThreshold;
+        private System.Windows.Forms.NumericUpDown numericSearchSize;
+        private System.Windows.Forms.NumericUpDown numericMaxSearch;
+        private System.Windows.Forms.CheckBox checkJpg;
     }
 }
