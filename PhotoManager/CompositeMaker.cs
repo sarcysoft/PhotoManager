@@ -687,7 +687,8 @@ namespace PhotoManager
             Mat tempMat = CvInvoke.Imread(path);
 
             var minsize = Math.Min(tempMat.Cols, tempMat.Rows);
-            Rectangle roi = new Rectangle((tempMat.Cols - minsize) >> 1, (tempMat.Rows - minsize) >> 1, minsize, minsize);
+            Rectangle roi = new((tempMat.Cols - minsize) >> 1, (tempMat.Rows - minsize) >> 1, minsize, minsize);
+            tempMat = new Mat(tempMat, roi);
 
             if (build)
             {
@@ -776,14 +777,9 @@ namespace PhotoManager
         private void btnSave_Click(object sender, EventArgs e)
         {
             Mat croppedMat = new Mat(outputMat, outputRoi);
-            if (checkJpg.Checked)
-            {
-                CvInvoke.Imwrite("composite.jpg", croppedMat);
-            }
-            else
-            {
-                CvInvoke.Imwrite("composite.png", croppedMat);
-            }
+            var outputName = $"{Path.GetFileNameWithoutExtension(inputPath)}_{xSize}_{outMult}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+            CvInvoke.Imwrite($"{outputName}.jpg", croppedMat);
         }
 
         private void CompositeMaker_FormClosing(object sender, FormClosingEventArgs e)
