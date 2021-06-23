@@ -1,5 +1,8 @@
-﻿using System;
+﻿using Emgu.CV;
+using Emgu.CV.CvEnum;
+using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Security.Cryptography;
 using System.Windows.Forms;
@@ -11,12 +14,14 @@ namespace PhotoManager
         private List<string> listPhotos;
 
         //private Dictionary<string, PhotoDetails> dictPhotos;
-        //public ImageList iconList { get; set; }
+        public ImageList iconList { get; set; }
 
 
         public Form1()
         {
             InitializeComponent();
+            iconList = new();
+            listView1.LargeImageList = iconList;
         }
 
         private void btnBrowse_Click(object sender, EventArgs e)
@@ -182,16 +187,99 @@ namespace PhotoManager
                 // Look for a file extension.
                 if (e.Node.Text.Contains("."))
                 {
-                    var compDlg = new CompositeMaker();
-                    compDlg.SetSourceFile(e.Node.FullPath.ToLower());
-                    compDlg.SetPhotoList(listPhotos);
-                    compDlg.ShowDialog();
+                    var item = new ListViewItem();
+                    item.Text = Path.GetFileName(e.Node.FullPath);
+                    item.Tag = e.Node.FullPath.ToLower();
+
+                    Mat inputMat = CvInvoke.Imread(e.Node.FullPath);
+
+                    var scaledX = inputMat.Cols / (double)32;
+                    var scaledY = inputMat.Rows / (double)32;
+                    var scaledSize = (scaledX > scaledY) ? scaledX : scaledY;
+
+                    CvInvoke.Resize(inputMat, inputMat, new Size((int)(inputMat.Cols / scaledSize), (int)(inputMat.Rows / scaledSize)), 0, 0, Inter.Area);
+                    Emgu.CV.Util.VectorOfByte buf = new();
+                    CvInvoke.Imencode(".jpg", inputMat, buf);
+                    MemoryStream stream = new MemoryStream(buf.ToArray());
+
+                    item.ImageIndex = iconList.Images.Count;
+                    iconList.Images.Add(Image.FromStream(stream));
+
+                    listView1.Items.Add(item);
                 }
             }
             // If the file is not found, handle the exception and inform the user.
             catch (System.ComponentModel.Win32Exception)
             {
                 MessageBox.Show("File not found.");
+            }
+        }
+
+        private void buttonBuild_Click(object sender, EventArgs e)
+        {
+            List<string> fileList = new () { };
+
+            foreach(ListViewItem item in listView1.Items)
+            {
+                fileList.Add(item.Tag.ToString());
+            }
+
+            if (fileList.Count > 0)
+            {
+
+                try
+                {
+                    var compDlg = new CompositeMaker();
+
+                    compDlg.SetSourceFiles(fileList);
+                    compDlg.SetPhotoList(listPhotos);
+                    compDlg.ShowDialog();
+                }
+                // If the file is not found, handle the exception and inform the user.
+                catch (System.ComponentModel.Win32Exception)
+                {
+                    MessageBox.Show("File not found.");
+                }
+            }
+        }
+
+        private void treeFiles_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (e.Node.Text.Contains("."))
+            {
+                Mat inputMat = CvInvoke.Imread(e.Node.FullPath);
+
+                var scaledX = inputMat.Cols / (double)pictureBox1.Width;
+                var scaledY = inputMat.Rows / (double)pictureBox1.Height;
+                var scaledSize = (scaledX > scaledY) ? scaledX : scaledY;
+
+                CvInvoke.Resize(inputMat, inputMat, new Size((int)(inputMat.Cols/scaledSize), (int)(inputMat.Rows/scaledSize)), 0, 0, Inter.Area);
+                Emgu.CV.Util.VectorOfByte buf = new();
+                CvInvoke.Imencode(".jpg", inputMat, buf);
+                MemoryStream stream = new MemoryStream(buf.ToArray());
+                pictureBox1.Image = Image.FromStream(stream);
+            }
+        }
+
+        private void listView1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (listView1.SelectedItems.Count > 0)
+            {
+                var path = listView1.SelectedItems[0].Tag.ToString();
+                if (path != null)
+                {
+                    Mat inputMat = CvInvoke.Imread(path);
+
+                    var scaledX = inputMat.Cols / (double)pictureBox1.Width;
+                    var scaledY = inputMat.Rows / (double)pictureBox1.Height;
+                    var scaledSize = (scaledX > scaledY) ? scaledX : scaledY;
+
+                    CvInvoke.Resize(inputMat, inputMat, new Size((int)(inputMat.Cols / scaledSize), (int)(inputMat.Rows / scaledSize)), 0, 0, Inter.Area);
+                    Emgu.CV.Util.VectorOfByte buf = new();
+                    CvInvoke.Imencode(".jpg", inputMat, buf);
+                    MemoryStream stream = new MemoryStream(buf.ToArray());
+                    pictureBox1.Image = Image.FromStream(stream);
+                }
             }
         }
     }

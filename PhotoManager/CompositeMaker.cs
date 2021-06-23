@@ -16,12 +16,13 @@ using System.Runtime.Caching;
 using Newtonsoft.Json;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using Emgu.CV.Structure;
 
 namespace PhotoManager
 {
     public partial class CompositeMaker : Form
     {
-        private string inputPath;
+        private List<string> inputFileList;
         private List<string> listPhotos;
         private Dictionary<string, int[]> rgbHashTable;
         private bool hashTableModified = false;
@@ -34,7 +35,8 @@ namespace PhotoManager
 
         private const int colourScale = 2;
 
-        private ColourDetails[,,] lookupArray = new ColourDetails[(256 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
+        private ColourDetails[,,] rgbLookupArray = new ColourDetails[(256 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
+        private ColourDetails[,,] hsvLookupArray = new ColourDetails[(180 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
         private int[,] pictureGrid;
 
         private Mat inputMat;
@@ -78,9 +80,9 @@ namespace PhotoManager
             InitializeComponent();
         }
 
-        public void SetSourceFile(string fullpath)
+        public void SetSourceFiles(List<string> fileList)
         {
-            inputPath = fullpath;
+            inputFileList = fileList;
         }
 
         public void SetPhotoList(List<string> photos)
@@ -90,7 +92,11 @@ namespace PhotoManager
 
         private void CompositeMaker_Load(object sender, EventArgs e)
         {
-            inputMat = CvInvoke.Imread(inputPath);
+            bool haveOpenCL = CvInvoke.HaveOpenCL;
+            bool haveOpenClGpu = CvInvoke.HaveOpenCLCompatibleGpuDevice;
+            CvInvoke.UseOpenCL = haveOpenCL && haveOpenClGpu;
+
+            inputMat = CvInvoke.Imread(inputFileList[0]);
 
             var minsize = Math.Min(inputMat.Cols, inputMat.Height);
             Rectangle roi = new Rectangle((inputMat.Cols - minsize) >> 1, (inputMat.Height - minsize) >> 1, minsize, minsize);
@@ -269,18 +275,18 @@ namespace PhotoManager
                                     int g = rgbValue[1] >> colourScale;
                                     int b = rgbValue[2] >> colourScale;
 
-                                    if (lookupArray[r, g, b] == null)
+                                    if (rgbLookupArray[r, g, b] == null)
                                     {
                                         var details = new ColourDetails();
                                         details.Actual = true;
                                         details.Photos = new List<int> { };
-                                        lookupArray[r, g, b] = details;
+                                        rgbLookupArray[r, g, b] = details;
 
                                         colours++;
                                     }
 
                                     photoCount++;
-                                    lookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(hashPhotos[i.Key]));
+                                    rgbLookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(hashPhotos[i.Key]));
                                     hashPhotos[i.Key] = null;
                                 }
                             }
@@ -329,18 +335,18 @@ namespace PhotoManager
                                     int g = rgbValue[1] >> colourScale;
                                     int b = rgbValue[2] >> colourScale;
 
-                                    if (lookupArray[r, g, b] == null)
+                                    if (rgbLookupArray[r, g, b] == null)
                                     {
                                         var details = new ColourDetails();
                                         details.Actual = true;
                                         details.Photos = new List<int> { };
-                                        lookupArray[r, g, b] =  details;
+                                        rgbLookupArray[r, g, b] =  details;
 
                                         colours++;
                                     }
 
                                     photoCount++;
-                                    lookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(i.Value));
+                                    rgbLookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(i.Value));
                                 }
                                 catch (Exception ex)
                                 {
@@ -421,7 +427,7 @@ namespace PhotoManager
                     {
                         for (var z = z1; z <= z2; z++)
                         {
-                            var item = lookupArray[x, y, z];
+                            var item = rgbLookupArray[x, y, z];
                             if (item != null)
                             {
                                 if ((searchSize == 0) || (item.Actual == true))
@@ -444,11 +450,11 @@ namespace PhotoManager
                 searchSize++;
             }
 
-            if (lookupArray[r, g, b] == null)
+            if (rgbLookupArray[r, g, b] == null)
             {
-                lookupArray[r, g, b] = new();
-                lookupArray[r, g, b].Actual = false;
-                lookupArray[r, g, b].Photos = lookupList;
+                rgbLookupArray[r, g, b] = new();
+                rgbLookupArray[r, g, b].Actual = false;
+                rgbLookupArray[r, g, b].Photos = lookupList;
                 colours++;
                 virtualCover = (100 * colours) / ((256 >> colourScale) * (256 >> colourScale) * (256 >> colourScale));
             }
@@ -777,7 +783,7 @@ namespace PhotoManager
         private void btnSave_Click(object sender, EventArgs e)
         {
             Mat croppedMat = new Mat(outputMat, outputRoi);
-            var outputName = $"{Path.GetFileNameWithoutExtension(inputPath)}_{xSize}_{outMult}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+            var outputName = $"composite_{xSize}_{outMult}_{DateTime.UtcNow:yyyyMMddHHmmss}";
 
             CvInvoke.Imwrite($"{outputName}.jpg", croppedMat);
         }
