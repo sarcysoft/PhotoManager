@@ -26,6 +26,7 @@ namespace PhotoManager
         private List<string> listPhotos;
         private Dictionary<string, int[]> rgbHashTable;
         private bool hashTableModified = false;
+        private Dictionary<string, string> hashPhotos;
 
         public class ColourDetails
         {
@@ -97,7 +98,7 @@ namespace PhotoManager
             bool haveOpenClGpu = CvInvoke.HaveOpenCLCompatibleGpuDevice;
             CvInvoke.UseOpenCL = haveOpenCL && haveOpenClGpu;
 
-            trackBar1.Value = 0;
+            trackBar1.Value = 1;
             threshold = trackThreshold.Value * trackThreshold.Value;
             minSearchSize = (int)(numericSearchSize.Value = 1);
             maxSearchSize = (int)(numericMaxSearch.Value = (64 >> colourScale));
@@ -160,6 +161,8 @@ namespace PhotoManager
 
             xx = inputMat.Cols / 2;
             yy = inputMat.Height / 2;
+
+            numScale.Value = minsize / 350;
         }
 
         private void UpdateSource()
@@ -183,8 +186,6 @@ namespace PhotoManager
             CvInvoke.Imencode(".jpg", scaledMat, buf);
             MemoryStream stream = new MemoryStream(buf.ToArray());
             pictureSource.Image = Image.FromStream(stream);
-
-            numScale.Value = minsize / 350;
         }
 
         private void UpdateBestFit()
@@ -253,6 +254,7 @@ namespace PhotoManager
             return hash;
         }
 
+
         private void BuildLookupArray()
         {
             photoCount = 0;
@@ -262,7 +264,53 @@ namespace PhotoManager
 
             var iRange = Enumerable.Range(0, listPhotos.Count);
 
-            Dictionary<string, string> hashPhotos = new Dictionary<string, string> { };
+            hashPhotos = new Dictionary<string, string> { };
+
+            foreach (var i in listPhotos)
+            {
+                FileInfo fi = new FileInfo(i);
+
+                string hash = GetHash(fi);
+                hashPhotos[hash] = i;
+            }
+
+            if (File.Exists("rgbhashtable.json"))
+            {
+                using (StreamReader file = new StreamReader("rgbhashtable.json"))
+                {
+                    string dictString = file.ReadToEnd();
+                    rgbHashTable = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(dictString);
+                }
+            }
+            else
+            {
+                rgbHashTable = new() { };
+            }
+
+            foreach(var photo in hashPhotos)
+            {
+                if (!rgbHashTable.ContainsKey(photo.Key))
+                {
+                    var image = LoadMat(photo.Value, 1, true);
+
+                    var value = image.GetRawData(0, 0);
+                    var rgbValue = new int[] { value[0], value[1], value[2] };
+                    rgbHashTable[photo.Key] = rgbValue;
+                    hashTableModified = true;
+                }
+            }
+        }
+         
+        private void BuildLookupArray2()
+        {
+            photoCount = 0;
+            colours = 0;
+
+            rgbHashTable = new Dictionary<string, int[]> { };
+
+            var iRange = Enumerable.Range(0, listPhotos.Count);
+
+            hashPhotos = new Dictionary<string, string> { };
 
             foreach (var i in listPhotos)
             {
@@ -430,31 +478,72 @@ namespace PhotoManager
 
         private int FindMin(int v, int s, bool hue = false)
         {
+            var min = v - s;
             if (hue)
             {
-                return (v - s) < 0 ? (360 >> colourScale) + v - s : v - s;
+                return min;
             }
             else
             {
-                return (v - s) < 0 ? 0 : v - s;
+                return Math.Max(min, 0);
             }
         }
 
         private int FindMax(int v, int s, bool hue = false)
         {
+            var max = v + s;
+
             if (hue)
-            {
-                var limit = (360 >> colourScale) - 1;
-                return (v + s) >= limit ? v + s - limit : v + s;
+            {                
+                return max;
             }
             else
             {
                 var limit = (256 >> colourScale) - 1;
-                return (v + s) >= limit ? limit : v + s;
+                return Math.Min(max, limit);
             }
         }
 
         private int FindClosest(int r, int g, int b)
+        {
+            int best = -1;
+            double closest = -1;
+
+            var bestList = new List<int>();
+
+            foreach (var hash in hashPhotos)
+            {
+                var value = rgbHashTable[hash.Key];
+
+                var rr = value[0] - r;
+                var gg = value[1] - g;
+                var bb = value[2] - b;
+
+                var dist = /*Math.Sqrt*/((rr * rr) + (gg * gg) + (bb * bb));
+
+                if (dist < threshold)
+                {
+                    bestList.Add(listPhotos.IndexOf(hash.Value));
+                }
+
+                if ((closest < 0) || (dist < closest))
+                {
+                    closest = dist;
+                    best = listPhotos.IndexOf(hash.Value);
+                }
+            }
+
+            if (bestList.Count > 0)
+            {
+                var rand = new Random();
+                int x = rand.Next(0, bestList.Count);
+                best = bestList[x];
+            }
+
+            return best;
+        }
+
+        private int FindClosest2(int r, int g, int b)
         {
             int best = -1;
 
@@ -533,14 +622,18 @@ namespace PhotoManager
 #else
             while ((lookupList.Count == 0) || ((lookupList.Count * searchSize * searchSize) < threshold) && (searchSize <= maxSearchSize))
             {
-                int x1 = FindMin(hu, searchSize, true);
-                int x2 = FindMax(hu, searchSize, true);
+                var huSize = Math.Min(searchSize >> 0, (180 >> colourScale));
+                var saSize = Math.Min(searchSize >> 0, (256 >> colourScale));
+                var brSize = Math.Min(searchSize >> 0, (128 >> colourScale));
 
-                int y1 = FindMin(sa, searchSize);
-                int y2 = FindMax(sa, searchSize);
+                int x1 = FindMin(hu, huSize, true);
+                int x2 = FindMax(hu, huSize, true);
 
-                int z1 = FindMin(br, searchSize);
-                int z2 = FindMax(br, searchSize);
+                int y1 = FindMin(sa, saSize);
+                int y2 = sa;//FindMax(sa, saSize);
+
+                int z1 = FindMin(br, brSize);
+                int z2 = br;// FindMax(br, brSize);
 
                 for (var x = x1; x <= x2; x++)
                 {
@@ -548,7 +641,10 @@ namespace PhotoManager
                     {
                         for (var z = z1; z <= z2; z++)
                         {
-                            var item = hsbLookupArray[x, y, z];
+                            var h = x > 0 ? x : x + (360 >> colourScale);
+                            h = h < (360 >> colourScale) ? h : h - (360 >> colourScale);
+
+                            var item = hsbLookupArray[h, y, z]; ;
                             if (item != null)
                             {
                                 if ((searchSize == 0) || (item.Actual == true))
@@ -829,7 +925,7 @@ namespace PhotoManager
             }
             else
             {
-                CvInvoke.Resize(tempMat, tempMat, new Size(zoom, zoom), 0, 0, Inter.Lanczos4);
+                CvInvoke.Resize(tempMat, tempMat, new Size(zoom, zoom), 0, 0, Inter.Area);
             }
 
             return tempMat;
@@ -842,20 +938,28 @@ namespace PhotoManager
 
         private void trackBar1_Scroll(object sender, EventArgs e)
         {
-            zoom = (int)Math.Pow(2, trackBar1.Value);
+            zoom = trackBar1.Value;
             labelZoom.Text = $"x{zoom}";
             UpdateSource();
         }
 
         private void pictureDest_DoubleClick(object sender, EventArgs e)
         {
-            Mat croppedMat = new Mat(outputMat, outputRoi);
-            CvInvoke.Resize(croppedMat, croppedMat, new Size(croppedMat.Cols / tempScale, croppedMat.Rows / tempScale));
+            try
+            {
 
-            CvInvoke.Imshow("Composite", croppedMat);
+                Mat croppedMat = new Mat(outputMat, outputRoi);
+                CvInvoke.Resize(croppedMat, croppedMat, new Size(croppedMat.Cols / tempScale, croppedMat.Rows / tempScale));
+
+                CvInvoke.Imshow("Composite", croppedMat);
+            }
+            catch (Exception ex)
+            {
+
+            }
         }
 
-        private void UpdateDestPic()
+            private void UpdateDestPic()
         {
             if (bOuputReady)
             {
