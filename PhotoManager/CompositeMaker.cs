@@ -33,10 +33,10 @@ namespace PhotoManager
             public List<int> Photos;
         }
 
-        private const int colourScale = 2;
+        private const int colourScale = 1;
 
         private ColourDetails[,,] rgbLookupArray = new ColourDetails[(256 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
-        private ColourDetails[,,] hsvLookupArray = new ColourDetails[(180 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
+        private ColourDetails[,,] hsbLookupArray = new ColourDetails[(360 >> colourScale), (256 >> colourScale), (256 >> colourScale)];
         private int[,] pictureGrid;
 
         private Mat inputMat;
@@ -67,6 +67,7 @@ namespace PhotoManager
         private int zoom = 1;
         private int outMult = 1;
         private int zoomScale = 1;
+        private int tempScale = 1;
         private int threshold = 1;
         private int minSearchSize = 0;
         private int maxSearchSize = 0;
@@ -96,33 +97,16 @@ namespace PhotoManager
             bool haveOpenClGpu = CvInvoke.HaveOpenCLCompatibleGpuDevice;
             CvInvoke.UseOpenCL = haveOpenCL && haveOpenClGpu;
 
-            inputMat = CvInvoke.Imread(inputFileList[0]);
-
-            var minsize = Math.Min(inputMat.Cols, inputMat.Height);
-            Rectangle roi = new Rectangle((inputMat.Cols - minsize) >> 1, (inputMat.Height - minsize) >> 1, minsize, minsize);
-            inputMat = new Mat(inputMat, roi);
-
-            var scaledSize = (pictureSource.Width < pictureSource.Height) ? pictureSource.Width : pictureSource.Height;
-
-            Mat scaledMat = new Mat();
-            CvInvoke.Resize(inputMat, scaledMat, new Size(scaledSize, scaledSize), 0, 0, Inter.Area);
-            Emgu.CV.Util.VectorOfByte buf = new();
-            CvInvoke.Imencode(".jpg", scaledMat, buf);
-            MemoryStream stream = new MemoryStream(buf.ToArray());
-            pictureSource.Image = Image.FromStream(stream);
-
-            scale = (double)minsize / (double)scaledSize;
+            trackBar1.Value = 0;
             threshold = trackThreshold.Value * trackThreshold.Value;
-            minSearchSize = (int)numericSearchSize.Value;
+            minSearchSize = (int)(numericSearchSize.Value = 1);
             maxSearchSize = (int)(numericMaxSearch.Value = (64 >> colourScale));
 
-            xx = inputMat.Cols / 2;
-            yy = inputMat.Height / 2;
+            LoadSource();
 
-            numScale.Value = minsize / 350;
-            UpdateSizes(); ;
-
-            trackBar1.Value = 0;
+            UpdateTarget();
+            UpdateSizes();
+            UpdateSource();
 
             lblCover.Text = "Building lookup array.";
 
@@ -131,8 +115,6 @@ namespace PhotoManager
 
             btnCreate.Enabled = false;
             btnUpdate.Enabled = false;
-
-            UpdateTarget();
         }
 
         private void UpdateTarget()
@@ -162,9 +144,47 @@ namespace PhotoManager
             Mat targetMat = new Mat(inputMat, roi);
             CvInvoke.Resize(targetMat, targetMat, new Size(pictureTarget.Width, pictureTarget.Height), 0, 0, Inter.Area);
             Emgu.CV.Util.VectorOfByte buf = new();
+
             CvInvoke.Imencode(".jpg", targetMat, buf);
             MemoryStream stream = new MemoryStream(buf.ToArray());
             pictureTarget.Image = Image.FromStream(stream);
+        }
+
+        private void LoadSource()
+        {
+            inputMat = CvInvoke.Imread(inputFileList[0]);
+
+            var minsize = Math.Min(inputMat.Cols, inputMat.Height);
+            Rectangle roi = new Rectangle((inputMat.Cols - minsize) >> 1, (inputMat.Height - minsize) >> 1, minsize, minsize);
+            inputMat = new Mat(inputMat, roi);
+
+            xx = inputMat.Cols / 2;
+            yy = inputMat.Height / 2;
+        }
+
+        private void UpdateSource()
+        {
+            var minsize = Math.Min(inputMat.Cols, inputMat.Height);
+            var scaledSize = (pictureSource.Width < pictureSource.Height) ? pictureSource.Width : pictureSource.Height;
+            scale = (double)minsize / (double)scaledSize;
+
+            Mat scaledMat = new Mat();
+            inputMat.CopyTo(scaledMat);
+
+            var xv = (inputMat.Cols / zoom);
+            var yv = (inputMat.Rows / zoom);            
+            Rectangle visRect = new Rectangle(xx-(xv/2)- (int)(3 * scale), yy-(yv/2)- (int)(3 * scale), xv, yv);
+            CvInvoke.Rectangle(scaledMat, visRect, new MCvScalar(0, 0, 0), (int)(3 * scale));
+            CvInvoke.Rectangle(scaledMat, visRect, new MCvScalar(255, 255, 255), (int)(1 * scale));
+
+            CvInvoke.Resize(scaledMat, scaledMat, new Size(scaledSize, scaledSize), 0, 0, Inter.Area);
+
+            Emgu.CV.Util.VectorOfByte buf = new();
+            CvInvoke.Imencode(".jpg", scaledMat, buf);
+            MemoryStream stream = new MemoryStream(buf.ToArray());
+            pictureSource.Image = Image.FromStream(stream);
+
+            numScale.Value = minsize / 350;
         }
 
         private void UpdateBestFit()
@@ -204,6 +224,7 @@ namespace PhotoManager
 
             UpdateTarget();
             UpdateBestFit();
+            UpdateSource();
         }
 
         public static string CreateMD5(string input)
@@ -277,16 +298,36 @@ namespace PhotoManager
 
                                     if (rgbLookupArray[r, g, b] == null)
                                     {
-                                        var details = new ColourDetails();
-                                        details.Actual = true;
-                                        details.Photos = new List<int> { };
+                                        var details = new ColourDetails
+                                        {
+                                            Actual = true,
+                                            Photos = new List<int> { }
+                                        };
                                         rgbLookupArray[r, g, b] = details;
 
                                         colours++;
                                     }
+                                    rgbLookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(hashPhotos[i.Key]));
+
+                                    Color c = Color.FromArgb(1, rgbValue[0], rgbValue[1], rgbValue[2]);
+                                    int hu = (int)c.GetHue() >> colourScale;
+                                    int sa = (int)(255 * c.GetSaturation()) >> colourScale;
+                                    int br = (int)(255 * c.GetBrightness()) >> colourScale;
+
+                                    if (hsbLookupArray[hu, sa, br] == null)
+                                    {
+                                        var details = new ColourDetails
+                                        {
+                                            Actual = true,
+                                            Photos = new List<int> { }
+                                        };
+                                        hsbLookupArray[hu, sa, br] = details;
+
+                                        colours++;
+                                    }
+                                    hsbLookupArray[hu, sa, br].Photos.Add(listPhotos.IndexOf(hashPhotos[i.Key]));
 
                                     photoCount++;
-                                    rgbLookupArray[r, g, b].Photos.Add(listPhotos.IndexOf(hashPhotos[i.Key]));
                                     hashPhotos[i.Key] = null;
                                 }
                             }
@@ -387,20 +428,40 @@ namespace PhotoManager
             statusText = "";
         }
 
-        private int FindMin(int v, int s)
+        private int FindMin(int v, int s, bool hue = false)
         {
-            return (v - s) < 0 ? 0 : v - s;
+            if (hue)
+            {
+                return (v - s) < 0 ? (360 >> colourScale) + v - s : v - s;
+            }
+            else
+            {
+                return (v - s) < 0 ? 0 : v - s;
+            }
         }
 
-        private int FindMax(int v, int s)
+        private int FindMax(int v, int s, bool hue = false)
         {
-            var limit = (256 >> colourScale) - 1;
-            return (v + s) >= limit ? limit : v + s;
+            if (hue)
+            {
+                var limit = (360 >> colourScale) - 1;
+                return (v + s) >= limit ? v + s - limit : v + s;
+            }
+            else
+            {
+                var limit = (256 >> colourScale) - 1;
+                return (v + s) >= limit ? limit : v + s;
+            }
         }
 
         private int FindClosest(int r, int g, int b)
         {
             int best = -1;
+
+            Color c = Color.FromArgb(1, r,g,b);
+            int hu = (int)c.GetHue() >> colourScale;
+            int sa = (int)(255 * c.GetSaturation()) >> colourScale;
+            int br = (int)(255 * c.GetBrightness()) >> colourScale;
 
             r >>= colourScale;
             g >>= colourScale;
@@ -409,7 +470,7 @@ namespace PhotoManager
             List<int> lookupList = new List<int>() { };
 
             int searchSize = minSearchSize;
-
+#if false
             while ((lookupList.Count == 0) || ((lookupList.Count * searchSize * searchSize) < threshold) && (searchSize <= maxSearchSize))
             {
                 int x1 = FindMin(r, searchSize);
@@ -469,10 +530,67 @@ namespace PhotoManager
                 int x = rand.Next(0, lookupList.Count);
                 best = lookupList[x];
             }
-            else
+#else
+            while ((lookupList.Count == 0) || ((lookupList.Count * searchSize * searchSize) < threshold) && (searchSize <= maxSearchSize))
             {
-                //Console.WriteLine($"No Match for [{r},{g},{b}]");
+                int x1 = FindMin(hu, searchSize, true);
+                int x2 = FindMax(hu, searchSize, true);
+
+                int y1 = FindMin(sa, searchSize);
+                int y2 = FindMax(sa, searchSize);
+
+                int z1 = FindMin(br, searchSize);
+                int z2 = FindMax(br, searchSize);
+
+                for (var x = x1; x <= x2; x++)
+                {
+                    for (var y = y1; y <= y2; y++)
+                    {
+                        for (var z = z1; z <= z2; z++)
+                        {
+                            var item = hsbLookupArray[x, y, z];
+                            if (item != null)
+                            {
+                                if ((searchSize == 0) || (item.Actual == true))
+                                {
+                                    if (item.Photos != null)
+                                    {
+                                        foreach (var photo in item.Photos)
+                                        {
+                                            //if (!lookupList.Contains(photo))
+                                            {
+                                                lookupList.Add(photo);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                searchSize++;
             }
+
+            if (hsbLookupArray[hu, sa, br] == null)
+            {
+                hsbLookupArray[hu, sa, br] = new();
+                hsbLookupArray[hu, sa, br].Actual = false;
+                hsbLookupArray[hu, sa, br].Photos = lookupList;
+                colours++;
+                virtualCover = (100 * colours) / ((360 >> colourScale) * (256 >> colourScale) * (256 >> colourScale));
+            }
+
+            if (lookupList.Count == 1)
+            {
+                best = lookupList[0];
+            }
+            else if (lookupList.Count > 1)
+            {
+                var rand = new Random();
+                int x = rand.Next(0, lookupList.Count);
+                best = lookupList[x];
+            }
+#endif
 
             return best;
         }
@@ -565,6 +683,8 @@ namespace PhotoManager
 
         private void UpdateDest()
         {
+            bOuputReady = false;
+
             zoomScale = zoom * outMult;
             var segs = xSize / zoom;
 
@@ -596,7 +716,8 @@ namespace PhotoManager
                     segs += 2;
                 }
 
-                outputMat = new Mat(new Size(segs * zoomScale, segs * zoomScale), inputMat.Depth, inputMat.NumberOfChannels);
+                var outSize = segs * zoomScale * tempScale;
+                outputMat = new Mat(new Size(outSize, outSize), inputMat.Depth, inputMat.NumberOfChannels);
             }
             catch (Exception ex)
             {
@@ -609,7 +730,10 @@ namespace PhotoManager
 
                 var outX = xSize * outMult;
                 var outY = ySize * outMult;
-                outputRoi = new Rectangle((outputMat.Cols - outX) / 2, (outputMat.Rows - outY) / 2, outX, outY);
+                outputRoi = new Rectangle((tempScale * ((segs * zoomScale) - outX)) / 2,
+                    (tempScale * ((segs * zoomScale) - outY)) / 2,
+                    outX * tempScale,
+                    outY * tempScale);
 
                 progress = 0;
                 statusText = "Building output image.";
@@ -649,11 +773,14 @@ namespace PhotoManager
 
                     Parallel.ForEach (pictureList, po, pic =>
                     {
-                        var image = LoadMat(pic.Key, zoomScale);
+                        var image = LoadMat(pic.Key, zoomScale * tempScale);
 
                         foreach (var loc in pic.Value)
                         {
-                            Rectangle targetRoi = new Rectangle(loc.Item1 * zoomScale, loc.Item2 * zoomScale, zoomScale, zoomScale);
+                            Rectangle targetRoi = new Rectangle(loc.Item1 * zoomScale * tempScale,
+                                loc.Item2 * zoomScale * tempScale,
+                                zoomScale * tempScale,
+                                zoomScale * tempScale);
                             Mat localTarget = new Mat(outputMat, targetRoi);
                             //outputMutex.WaitOne();
                             image.CopyTo(localTarget);
@@ -717,11 +844,15 @@ namespace PhotoManager
         {
             zoom = (int)Math.Pow(2, trackBar1.Value);
             labelZoom.Text = $"x{zoom}";
+            UpdateSource();
         }
 
         private void pictureDest_DoubleClick(object sender, EventArgs e)
         {
-            CvInvoke.Imshow("Comnposite", outputMat);
+            Mat croppedMat = new Mat(outputMat, outputRoi);
+            CvInvoke.Resize(croppedMat, croppedMat, new Size(croppedMat.Cols / tempScale, croppedMat.Rows / tempScale));
+
+            CvInvoke.Imshow("Composite", croppedMat);
         }
 
         private void UpdateDestPic()
@@ -783,6 +914,7 @@ namespace PhotoManager
         private void btnSave_Click(object sender, EventArgs e)
         {
             Mat croppedMat = new Mat(outputMat, outputRoi);
+            CvInvoke.Resize(croppedMat, croppedMat, new Size(croppedMat.Cols / tempScale, croppedMat.Rows / tempScale));
             var outputName = $"composite_{xSize}_{outMult}_{DateTime.UtcNow:yyyyMMddHHmmss}";
 
             CvInvoke.Imwrite($"{outputName}.jpg", croppedMat);
@@ -826,6 +958,9 @@ namespace PhotoManager
         {
             var cols = (int)(inputMat.Cols / numScale.Value);
             var rows = (int)(inputMat.Rows / numScale.Value);
+
+            tempScale = (int)numericTempScale.Value;
+
             labelSize.Text = $"[{cols} x {rows}]";
 
             if (checkJpg.Checked)
@@ -834,7 +969,7 @@ namespace PhotoManager
             }
             else
             {
-                trackBar3.Maximum = 0x10000 / rows;
+                trackBar3.Maximum = 0x10000 / (rows * tempScale);
             }
             outMult = trackBar3.Value;
             labelMult.Text = $"x{outMult}";
@@ -857,6 +992,11 @@ namespace PhotoManager
         }
 
         private void checkJpg_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateSizes();
+        }
+
+        private void numericTempScale_ValueChanged(object sender, EventArgs e)
         {
             UpdateSizes();
         }

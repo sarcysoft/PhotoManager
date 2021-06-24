@@ -54,6 +54,7 @@ namespace PhotoManager
             this.numericSearchSize = new System.Windows.Forms.NumericUpDown();
             this.numericMaxSearch = new System.Windows.Forms.NumericUpDown();
             this.checkJpg = new System.Windows.Forms.CheckBox();
+            this.numericTempScale = new System.Windows.Forms.NumericUpDown();
             ((System.ComponentModel.ISupportInitialize)(this.pictureSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureDest)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureTarget)).BeginInit();
@@ -65,6 +66,7 @@ namespace PhotoManager
             ((System.ComponentModel.ISupportInitialize)(this.trackThreshold)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericSearchSize)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericMaxSearch)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericTempScale)).BeginInit();
             this.SuspendLayout();
             // 
             // pictureSource
@@ -274,13 +276,16 @@ namespace PhotoManager
             // 
             // trackThreshold
             // 
+            this.trackThreshold.LargeChange = 50;
             this.trackThreshold.Location = new System.Drawing.Point(180, 431);
-            this.trackThreshold.Maximum = 25;
+            this.trackThreshold.Maximum = 200;
             this.trackThreshold.Minimum = 1;
             this.trackThreshold.Name = "trackThreshold";
             this.trackThreshold.Size = new System.Drawing.Size(222, 45);
+            this.trackThreshold.SmallChange = 10;
             this.trackThreshold.TabIndex = 22;
-            this.trackThreshold.Value = 12;
+            this.trackThreshold.TickFrequency = 10;
+            this.trackThreshold.Value = 50;
             this.trackThreshold.Scroll += new System.EventHandler(this.trackThreshold_Scroll);
             // 
             // numericSearchSize
@@ -312,11 +317,36 @@ namespace PhotoManager
             this.checkJpg.UseVisualStyleBackColor = true;
             this.checkJpg.CheckedChanged += new System.EventHandler(this.checkJpg_CheckedChanged);
             // 
+            // numericTempScale
+            // 
+            this.numericTempScale.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.numericTempScale.Location = new System.Drawing.Point(267, 463);
+            this.numericTempScale.Maximum = new decimal(new int[] {
+            16,
+            0,
+            0,
+            0});
+            this.numericTempScale.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numericTempScale.Name = "numericTempScale";
+            this.numericTempScale.Size = new System.Drawing.Size(42, 23);
+            this.numericTempScale.TabIndex = 26;
+            this.numericTempScale.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numericTempScale.ValueChanged += new System.EventHandler(this.numericTempScale_ValueChanged);
+            // 
             // CompositeMaker
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(904, 561);
+            this.Controls.Add(this.numericTempScale);
             this.Controls.Add(this.checkJpg);
             this.Controls.Add(this.numericMaxSearch);
             this.Controls.Add(this.numericSearchSize);
@@ -360,6 +390,7 @@ namespace PhotoManager
             ((System.ComponentModel.ISupportInitialize)(this.trackThreshold)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericSearchSize)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericMaxSearch)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericTempScale)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -391,5 +422,6 @@ namespace PhotoManager
         private System.Windows.Forms.NumericUpDown numericSearchSize;
         private System.Windows.Forms.NumericUpDown numericMaxSearch;
         private System.Windows.Forms.CheckBox checkJpg;
+        private System.Windows.Forms.NumericUpDown numericTempScale;
     }
 }
