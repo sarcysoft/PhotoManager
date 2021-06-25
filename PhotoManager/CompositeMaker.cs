@@ -65,9 +65,9 @@ namespace PhotoManager
         private DateTime progressStart;
         private int progressMax = 100;
 
-        private int zoom = 1;
+        private double zoom = 1;
         private int outMult = 1;
-        private int zoomScale = 1;
+        private double zoomScale = 1;
         private int tempScale = 1;
         private int threshold = 1;
         private int minSearchSize = 0;
@@ -98,7 +98,6 @@ namespace PhotoManager
             bool haveOpenClGpu = CvInvoke.HaveOpenCLCompatibleGpuDevice;
             CvInvoke.UseOpenCL = haveOpenCL && haveOpenClGpu;
 
-            trackBar1.Value = 1;
             threshold = trackThreshold.Value * trackThreshold.Value;
             minSearchSize = (int)(numericSearchSize.Value = 1);
             maxSearchSize = (int)(numericMaxSearch.Value = (64 >> colourScale));
@@ -162,7 +161,10 @@ namespace PhotoManager
             xx = inputMat.Cols / 2;
             yy = inputMat.Height / 2;
 
-            numScale.Value = minsize / 350;
+            numScale.Value = minsize / 400;
+            trackBar1.Maximum = minsize;
+            trackBar1.TickFrequency = minsize / 10;
+            zoom = inputMat.Cols / (inputMat.Cols - trackBar1.Value);
         }
 
         private void UpdateSource()
@@ -174,9 +176,9 @@ namespace PhotoManager
             Mat scaledMat = new Mat();
             inputMat.CopyTo(scaledMat);
 
-            var xv = (inputMat.Cols / zoom);
-            var yv = (inputMat.Rows / zoom);            
-            Rectangle visRect = new Rectangle(xx-(xv/2)- (int)(3 * scale), yy-(yv/2)- (int)(3 * scale), xv, yv);
+            var xv = (double)inputMat.Cols / zoom;
+            var yv = (double)inputMat.Rows / zoom;            
+            Rectangle visRect = new Rectangle((int)(xx-(xv/2)- (int)(3 * scale)), (int)(yy-(yv/2)- (int)(3 * scale)), (int)xv, (int)yv);
             CvInvoke.Rectangle(scaledMat, visRect, new MCvScalar(0, 0, 0), (int)(3 * scale));
             CvInvoke.Rectangle(scaledMat, visRect, new MCvScalar(255, 255, 255), (int)(1 * scale));
 
@@ -509,21 +511,43 @@ namespace PhotoManager
             int best = -1;
             double closest = -1;
 
-            var bestList = new List<int>();
+            //var bestList = new List<int>();
+            int[] bestArray = new int[10000];
+            int bestCount = 0;
+
+            Color c1 = Color.FromArgb(1, r, g, b);
 
             foreach (var hash in hashPhotos)
             {
                 var value = rgbHashTable[hash.Key];
+#if false
+                Color c2 = Color.FromArgb(1, value[0], value[1], value[2]);
 
+                var hh = Math.Abs(c1.GetHue() - c2.GetHue());
+                if (hh > 180)
+                {
+                    hh -= 360;
+                }
+                var ss = (c1.GetSaturation() - c2.GetSaturation()) * 90;
+                var bb = (c1.GetBrightness() - c2.GetBrightness()) * 90;
+
+                var dist = /*Math.Sqrt*/((hh * hh) + (ss * ss) + (bb * bb));
+
+#else
                 var rr = value[0] - r;
                 var gg = value[1] - g;
                 var bb = value[2] - b;
 
                 var dist = /*Math.Sqrt*/((rr * rr) + (gg * gg) + (bb * bb));
-
+#endif
                 if (dist < threshold)
                 {
-                    bestList.Add(listPhotos.IndexOf(hash.Value));
+                    //bestList.Add(listPhotos.IndexOf(hash.Value));
+                    if (bestCount < bestArray.Length)
+                    {
+                        bestArray[bestCount++] = listPhotos.IndexOf(hash.Value);
+                    }
+
                 }
 
                 if ((closest < 0) || (dist < closest))
@@ -533,11 +557,12 @@ namespace PhotoManager
                 }
             }
 
-            if (bestList.Count > 0)
+            //if (bestList.Count > 0)
+            if (bestCount > 0)
             {
                 var rand = new Random();
-                int x = rand.Next(0, bestList.Count);
-                best = bestList[x];
+                int x = rand.Next(0, bestCount);
+                best = bestArray[x];
             }
 
             return best;
@@ -782,7 +807,7 @@ namespace PhotoManager
             bOuputReady = false;
 
             zoomScale = zoom * outMult;
-            var segs = xSize / zoom;
+            var segs = (int)(xSize / zoom);
 
             var xStart = (xx / outScale) - (segs / 2);
             var yStart = (yy / outScale) - (segs / 2);
@@ -812,7 +837,7 @@ namespace PhotoManager
                     segs += 2;
                 }
 
-                var outSize = segs * zoomScale * tempScale;
+                var outSize = (int)(segs * zoomScale * tempScale);
                 outputMat = new Mat(new Size(outSize, outSize), inputMat.Depth, inputMat.NumberOfChannels);
             }
             catch (Exception ex)
@@ -826,8 +851,8 @@ namespace PhotoManager
 
                 var outX = xSize * outMult;
                 var outY = ySize * outMult;
-                outputRoi = new Rectangle((tempScale * ((segs * zoomScale) - outX)) / 2,
-                    (tempScale * ((segs * zoomScale) - outY)) / 2,
+                outputRoi = new Rectangle((int)(tempScale * ((segs * zoomScale) - outX)) / 2,
+                    (int)(tempScale * ((segs * zoomScale) - outY)) / 2,
                     outX * tempScale,
                     outY * tempScale);
 
@@ -869,14 +894,14 @@ namespace PhotoManager
 
                     Parallel.ForEach (pictureList, po, pic =>
                     {
-                        var image = LoadMat(pic.Key, zoomScale * tempScale);
+                        var image = LoadMat(pic.Key, (int)(zoomScale * tempScale));
 
                         foreach (var loc in pic.Value)
                         {
-                            Rectangle targetRoi = new Rectangle(loc.Item1 * zoomScale * tempScale,
-                                loc.Item2 * zoomScale * tempScale,
-                                zoomScale * tempScale,
-                                zoomScale * tempScale);
+                            Rectangle targetRoi = new Rectangle((int)(loc.Item1 * zoomScale * tempScale),
+                                (int)(loc.Item2 * zoomScale * tempScale),
+                                (int)(zoomScale * tempScale),
+                                (int)(zoomScale * tempScale));
                             Mat localTarget = new Mat(outputMat, targetRoi);
                             //outputMutex.WaitOne();
                             image.CopyTo(localTarget);
@@ -938,7 +963,7 @@ namespace PhotoManager
 
         private void trackBar1_Scroll(object sender, EventArgs e)
         {
-            zoom = trackBar1.Value;
+            zoom = (double)inputMat.Cols / (double)(inputMat.Cols - trackBar1.Value);
             labelZoom.Text = $"x{zoom}";
             UpdateSource();
         }

@@ -160,16 +160,14 @@ namespace PhotoManager
             // trackBar1
             // 
             this.trackBar1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.trackBar1.LargeChange = 50;
+            this.trackBar1.LargeChange = 500;
             this.trackBar1.Location = new System.Drawing.Point(489, 422);
-            this.trackBar1.Maximum = 500;
-            this.trackBar1.Minimum = 1;
+            this.trackBar1.Maximum = 100;
             this.trackBar1.Name = "trackBar1";
             this.trackBar1.Size = new System.Drawing.Size(297, 45);
-            this.trackBar1.SmallChange = 10;
+            this.trackBar1.SmallChange = 100;
             this.trackBar1.TabIndex = 8;
-            this.trackBar1.TickFrequency = 50;
-            this.trackBar1.Value = 1;
+            this.trackBar1.TickFrequency = 1000;
             this.trackBar1.Scroll += new System.EventHandler(this.trackBar1_Scroll);
             // 
             // labelZoom
@@ -237,6 +235,7 @@ namespace PhotoManager
             this.trackBar3.Name = "trackBar3";
             this.trackBar3.Size = new System.Drawing.Size(297, 45);
             this.trackBar3.TabIndex = 16;
+            this.trackBar3.TickFrequency = 10;
             this.trackBar3.Value = 1;
             this.trackBar3.Scroll += new System.EventHandler(this.trackBar3_Scroll);
             // 
@@ -282,11 +281,12 @@ namespace PhotoManager
             // trackThreshold
             // 
             this.trackThreshold.Location = new System.Drawing.Point(180, 431);
-            this.trackThreshold.Maximum = 16;
+            this.trackThreshold.Maximum = 32;
             this.trackThreshold.Minimum = 1;
             this.trackThreshold.Name = "trackThreshold";
             this.trackThreshold.Size = new System.Drawing.Size(222, 45);
             this.trackThreshold.TabIndex = 22;
+            this.trackThreshold.TickFrequency = 2;
             this.trackThreshold.Value = 4;
             this.trackThreshold.Scroll += new System.EventHandler(this.trackThreshold_Scroll);
             // 
